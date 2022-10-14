@@ -223,6 +223,32 @@ rules:
 - apiGroups:
   - nifi.konpyutaika.com
   resources:
+  - nifiparameterproviders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nifi.konpyutaika.com
+  resources:
+  - nifiparameterproviders/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nifi.konpyutaika.com
+  resources:
+  - nifiparameterproviders/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nifi.konpyutaika.com
+  resources:
   - nifiregistryclients
   verbs:
   - create

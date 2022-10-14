@@ -67,6 +67,7 @@ type RequeueConfig struct {
 	ParameterContextRequeueInterval    int
 	UserGroupRequeueInterval           int
 	DataFlowRequeueInterval            int
+	ParameterProviderRequeueInterval   int
 	ClusterTaskRequeueIntervals        map[string]int
 	RequeueOffset                      int
 }
@@ -84,6 +85,7 @@ func NewRequeueConfig() *RequeueConfig {
 		ParameterContextRequeueInterval:    util.MustConvertToInt(util.GetEnvWithDefault("PARAMETER_CONTEXT_REQUEUE_INTERVAL", "15"), "PARAMETER_CONTEXT_REQUEUE_INTERVAL"),
 		UserGroupRequeueInterval:           util.MustConvertToInt(util.GetEnvWithDefault("USER_GROUP_REQUEUE_INTERVAL", "15"), "USER_GROUP_REQUEUE_INTERVAL"),
 		DataFlowRequeueInterval:            util.MustConvertToInt(util.GetEnvWithDefault("DATAFLOW_REQUEUE_INTERVAL", "15"), "DATAFLOW_REQUEUE_INTERVAL"),
+		ParameterProviderRequeueInterval:   util.MustConvertToInt(util.GetEnvWithDefault("PARAMETER_PROVIDER_REQUEUE_INTERVAL", "15"), "PARAMETER_PROVIDER_REQUEUE_INTERVAL"),
 		RequeueOffset:                      util.MustConvertToInt(util.GetEnvWithDefault("REQUEUE_OFFSET", "0"), "REQUEUE_OFFSET"),
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"github.com/konpyutaika/nifikop/api/v1alpha1"
+	nifiv1alpha1 "github.com/konpyutaika/nifikop/api/v1alpha1"
 	"github.com/konpyutaika/nifikop/controllers"
 	// +kubebuilder:scaffold:imports
 )
@@ -34,6 +35,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(nifiv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -193,6 +195,19 @@ func main() {
 		logger.Error("unable to create controller", zap.String("controller", "NifiNodeGroupAutoscaler"), zap.Error(err))
 		os.Exit(1)
 	}
+
+	if err = (&controllers.NifiParameterProviderReconciler{
+		Client:          mgr.GetClient(),
+		Log:             *logger.Named("controllers").Named("NifiParameterProvider"),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        mgr.GetEventRecorderFor("nifi-parameter-provider-client"),
+		RequeueInterval: multipliers.ParameterProviderRequeueInterval,
+		RequeueOffset:   multipliers.RequeueOffset,
+	}).SetupWithManager(mgr); err != nil {
+		logger.Error("unable to create controller", zap.String("controller", "NifiParameterProvider"), zap.Error(err))
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {

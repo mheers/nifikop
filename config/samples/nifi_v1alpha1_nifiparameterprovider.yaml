@@ -1,0 +1,6 @@
+apiVersion: nifi.konpyutaika.com/v1alpha1
+kind: NifiParameterProvider
+metadata:
+  name: nifiparameterprovider-sample
+spec:
+  # TODO(user): Add fields here
