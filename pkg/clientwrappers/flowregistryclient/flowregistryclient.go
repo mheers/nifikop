@@ -1,4 +1,4 @@
-package registryclient
+package flowregistryclient
 
 import (
 	"github.com/konpyutaika/nifikop/api/v1alpha1"
@@ -9,7 +9,7 @@ import (
 	nigoapi "github.com/konpyutaika/nigoapi/pkg/nifi"
 )
 
-var log = common.CustomLogger().Named("registryclient-method")
+var log = common.CustomLogger().Named("flowregistryclient-method")
 
 func ExistRegistryClient(registryClient *v1alpha1.NifiRegistryClient, config *clientconfig.NifiConfig) (bool, error) {
 
@@ -22,7 +22,7 @@ func ExistRegistryClient(registryClient *v1alpha1.NifiRegistryClient, config *cl
 		return false, err
 	}
 
-	entity, err := nClient.GetRegistryClient(registryClient.Status.Id)
+	entity, err := nClient.GetFlowRegistryClient(registryClient.Status.Id)
 	if err := clientwrappers.ErrorGetOperation(log, err, "Get registry-client"); err != nil {
 		if err == nificlient.ErrNifiClusterReturned404 {
 			return false, nil
@@ -40,10 +40,10 @@ func CreateRegistryClient(registryClient *v1alpha1.NifiRegistryClient,
 		return nil, err
 	}
 
-	scratchEntity := nigoapi.RegistryClientEntity{}
+	scratchEntity := nigoapi.FlowRegistryClientEntity{}
 	updateRegistryClientEntity(registryClient, &scratchEntity)
 
-	entity, err := nClient.CreateRegistryClient(scratchEntity)
+	entity, err := nClient.CreateFlowRegistryClient(scratchEntity)
 	if err := clientwrappers.ErrorCreateOperation(log, err, "Failed to create registry-client "+registryClient.Name); err != nil {
 		return nil, err
 	}
@@ -62,14 +62,14 @@ func SyncRegistryClient(registryClient *v1alpha1.NifiRegistryClient,
 		return nil, err
 	}
 
-	entity, err := nClient.GetRegistryClient(registryClient.Status.Id)
+	entity, err := nClient.GetFlowRegistryClient(registryClient.Status.Id)
 	if err := clientwrappers.ErrorGetOperation(log, err, "Get registry-client"); err != nil {
 		return nil, err
 	}
 
 	if !registryClientIsSync(registryClient, entity) {
 		updateRegistryClientEntity(registryClient, entity)
-		entity, err = nClient.UpdateRegistryClient(*entity)
+		entity, err = nClient.UpdateFlowRegistryClient(*entity)
 		if err := clientwrappers.ErrorUpdateOperation(log, err, "Update registry-client"); err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func RemoveRegistryClient(registryClient *v1alpha1.NifiRegistryClient,
 		return err
 	}
 
-	entity, err := nClient.GetRegistryClient(registryClient.Status.Id)
+	entity, err := nClient.GetFlowRegistryClient(registryClient.Status.Id)
 	if err := clientwrappers.ErrorGetOperation(log, err, "Get registry-client"); err != nil {
 		if err == nificlient.ErrNifiClusterReturned404 {
 			return nil
@@ -98,23 +98,23 @@ func RemoveRegistryClient(registryClient *v1alpha1.NifiRegistryClient,
 	}
 
 	updateRegistryClientEntity(registryClient, entity)
-	err = nClient.RemoveRegistryClient(*entity)
+	err = nClient.RemoveFlowRegistryClient(*entity)
 
 	return clientwrappers.ErrorRemoveOperation(log, err, "Remove registry-client")
 }
 
-func registryClientIsSync(registryClient *v1alpha1.NifiRegistryClient, entity *nigoapi.RegistryClientEntity) bool {
+func registryClientIsSync(registryClient *v1alpha1.NifiRegistryClient, entity *nigoapi.FlowRegistryClientEntity) bool {
 	return registryClient.Name == entity.Component.Name &&
 		registryClient.Spec.Description == entity.Component.Description &&
 		registryClient.Spec.Uri == entity.Component.Uri
 }
 
-func updateRegistryClientEntity(registryClient *v1alpha1.NifiRegistryClient, entity *nigoapi.RegistryClientEntity) {
+func updateRegistryClientEntity(registryClient *v1alpha1.NifiRegistryClient, entity *nigoapi.FlowRegistryClientEntity) {
 
 	var defaultVersion int64 = 0
 
 	if entity == nil {
-		entity = &nigoapi.RegistryClientEntity{}
+		entity = &nigoapi.FlowRegistryClientEntity{}
 	}
 
 	if entity.Component == nil {
@@ -124,7 +124,7 @@ func updateRegistryClientEntity(registryClient *v1alpha1.NifiRegistryClient, ent
 	}
 
 	if entity.Component == nil {
-		entity.Component = &nigoapi.RegistryDto{}
+		entity.Component = &nigoapi.FlowRegistryClientDto{}
 	}
 
 	entity.Component.Name = registryClient.Name

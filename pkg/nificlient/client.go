@@ -52,10 +52,10 @@ type NifiClient interface {
 	RemoveClusterNodeFromClusterNodeId(nId string) error
 
 	// Registry client func
-	GetRegistryClient(id string) (*nigoapi.RegistryClientEntity, error)
-	CreateRegistryClient(entity nigoapi.RegistryClientEntity) (*nigoapi.RegistryClientEntity, error)
-	UpdateRegistryClient(entity nigoapi.RegistryClientEntity) (*nigoapi.RegistryClientEntity, error)
-	RemoveRegistryClient(entity nigoapi.RegistryClientEntity) error
+	GetFlowRegistryClient(id string) (*nigoapi.FlowRegistryClientEntity, error)
+	CreateFlowRegistryClient(entity nigoapi.FlowRegistryClientEntity) (*nigoapi.FlowRegistryClientEntity, error)
+	UpdateFlowRegistryClient(entity nigoapi.FlowRegistryClientEntity) (*nigoapi.FlowRegistryClientEntity, error)
+	RemoveFlowRegistryClient(entity nigoapi.FlowRegistryClientEntity) error
 
 	// Flow client func
 	GetFlow(id string) (*nigoapi.ProcessGroupFlowEntity, error)

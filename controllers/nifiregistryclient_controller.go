@@ -23,7 +23,7 @@ import (
 	"reflect"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/konpyutaika/nifikop/pkg/clientwrappers/registryclient"
+	"github.com/konpyutaika/nifikop/pkg/clientwrappers/flowregistryclient"
 	"github.com/konpyutaika/nifikop/pkg/k8sutil"
 	"github.com/konpyutaika/nifikop/pkg/nificlient/config"
 	"github.com/konpyutaika/nifikop/pkg/util"
@@ -178,7 +178,7 @@ func (r *NifiRegistryClientReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Ìn case of the cluster reference changed.
 	if !v1alpha1.ClusterRefsEquals([]v1alpha1.ClusterReference{instance.Spec.ClusterRef, current.Spec.ClusterRef}) {
 		// Delete the resource on the previous cluster.
-		if err := registryclient.RemoveRegistryClient(instance, clientConfig); err != nil {
+		if err := flowregistryclient.RemoveRegistryClient(instance, clientConfig); err != nil {
 			r.Recorder.Event(instance, corev1.EventTypeWarning, "RemoveError",
 				fmt.Sprintf("Failed to delete NifiRegistryClient %s from cluster %s before moving in %s",
 					instance.Name, original.Spec.ClusterRef.Name, original.Spec.ClusterRef.Name))
@@ -198,7 +198,7 @@ func (r *NifiRegistryClientReconciler) Reconcile(ctx context.Context, req ctrl.R
 		"Reconciling registry client "+instance.Name)
 
 	// Check if the NiFi registry client already exist
-	exist, err := registryclient.ExistRegistryClient(instance, clientConfig)
+	exist, err := flowregistryclient.ExistRegistryClient(instance, clientConfig)
 	if err != nil {
 		return RequeueWithError(r.Log, "failure checking for existing registry client "+instance.Name, err)
 	}
@@ -207,7 +207,7 @@ func (r *NifiRegistryClientReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Create NiFi registry client
 		r.Recorder.Event(instance, corev1.EventTypeNormal, "Creating",
 			fmt.Sprintf("Creating registry client %s", instance.Name))
-		status, err := registryclient.CreateRegistryClient(instance, clientConfig)
+		status, err := flowregistryclient.CreateRegistryClient(instance, clientConfig)
 		if err != nil {
 			return RequeueWithError(r.Log, "failure creating registry client "+instance.Name, err)
 		}
@@ -233,7 +233,7 @@ func (r *NifiRegistryClientReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Sync RegistryClient resource with NiFi side component
 	r.Recorder.Event(instance, corev1.EventTypeNormal, "Synchronizing",
 		fmt.Sprintf("Synchronizing registry client %s", instance.Name))
-	status, err := registryclient.SyncRegistryClient(instance, clientConfig)
+	status, err := flowregistryclient.SyncRegistryClient(instance, clientConfig)
 	if err != nil {
 		r.Recorder.Event(instance, corev1.EventTypeNormal, "SynchronizingFailed",
 			fmt.Sprintf("Synchronizing registry client %s failed", instance.Name))
@@ -335,7 +335,7 @@ func (r *NifiRegistryClientReconciler) removeFinalizer(ctx context.Context, regi
 func (r *NifiRegistryClientReconciler) finalizeNifiRegistryClient(registryClient *v1alpha1.NifiRegistryClient,
 	config *clientconfig.NifiConfig) error {
 
-	if err := registryclient.RemoveRegistryClient(registryClient, config); err != nil {
+	if err := flowregistryclient.RemoveRegistryClient(registryClient, config); err != nil {
 		return err
 	}
 	r.Log.Info("Deleted Registry client",

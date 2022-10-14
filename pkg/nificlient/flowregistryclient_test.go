@@ -10,25 +10,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetRegistryClient(t *testing.T) {
+func TestGetFlowRegistryClient(t *testing.T) {
 	assert := assert.New(t)
 
 	id := "16cfd2ec-0174-1000-0000-00004b9b35cc"
 
-	entity, err := testGetRegistryClient(t, id, 200)
+	entity, err := testGetFlowRegistryClient(t, id, 200)
 	assert.Nil(err)
 	assert.NotNil(entity)
 
-	entity, err = testGetRegistryClient(t, id, 404)
+	entity, err = testGetFlowRegistryClient(t, id, 404)
 	assert.IsType(ErrNifiClusterReturned404, err)
 	assert.Nil(entity)
 
-	entity, err = testGetRegistryClient(t, id, 500)
+	entity, err = testGetFlowRegistryClient(t, id, 500)
 	assert.IsType(ErrNifiClusterNotReturned200, err)
 	assert.Nil(entity)
 }
 
-func testGetRegistryClient(t *testing.T, id string, status int) (*nigoapi.RegistryClientEntity, error) {
+func testGetFlowRegistryClient(t *testing.T, id string, status int) (*nigoapi.FlowRegistryClientEntity, error) {
 
 	cluster := testClusterMock(t)
 
@@ -45,31 +45,31 @@ func testGetRegistryClient(t *testing.T, id string, status int) (*nigoapi.Regist
 		func(req *http.Request) (*http.Response, error) {
 			return httpmock.NewJsonResponse(
 				status,
-				MockRegistryClient(id, "registry-mock", "description", "http://uri.com:8888"))
+				MockFlowRegistryClient(id, "registry-mock", "description", "http://uri.com:8888"))
 		})
 
-	return client.GetRegistryClient(id)
+	return client.GetFlowRegistryClient(id)
 }
 
-func TestCreateRegistryClient(t *testing.T) {
+func TestCreateFlowRegistryClient(t *testing.T) {
 	assert := assert.New(t)
 
-	mockEntity := MockRegistryClient("16cfd2ec-0174-1000-0000-00004b9b35cc", "mock", "description", "http://uri:8888")
+	mockEntity := MockFlowRegistryClient("16cfd2ec-0174-1000-0000-00004b9b35cc", "mock", "description", "http://uri:8888")
 
-	entity, err := testCreateRegistryClient(t, &mockEntity, 201)
+	entity, err := testCreateFlowRegistryClient(t, &mockEntity, 201)
 	assert.Nil(err)
 	assert.NotNil(entity)
 
-	entity, err = testCreateRegistryClient(t, &mockEntity, 404)
+	entity, err = testCreateFlowRegistryClient(t, &mockEntity, 404)
 	assert.IsType(ErrNifiClusterReturned404, err)
 	assert.Nil(entity)
 
-	entity, err = testCreateRegistryClient(t, &mockEntity, 500)
+	entity, err = testCreateFlowRegistryClient(t, &mockEntity, 500)
 	assert.IsType(ErrNifiClusterNotReturned200, err)
 	assert.Nil(entity)
 }
 
-func testCreateRegistryClient(t *testing.T, entity *nigoapi.RegistryClientEntity, status int) (*nigoapi.RegistryClientEntity, error) {
+func testCreateFlowRegistryClient(t *testing.T, entity *nigoapi.FlowRegistryClientEntity, status int) (*nigoapi.FlowRegistryClientEntity, error) {
 
 	cluster := testClusterMock(t)
 
@@ -89,28 +89,28 @@ func testCreateRegistryClient(t *testing.T, entity *nigoapi.RegistryClientEntity
 				entity)
 		})
 
-	return client.CreateRegistryClient(*entity)
+	return client.CreateFlowRegistryClient(*entity)
 }
 
-func TestUpdateRegistryClient(t *testing.T) {
+func TestUpdateFlowRegistryClient(t *testing.T) {
 	assert := assert.New(t)
 
-	mockEntity := MockRegistryClient("16cfd2ec-0174-1000-0000-00004b9b35cc", "mock", "description", "http://uri:8888")
+	mockEntity := MockFlowRegistryClient("16cfd2ec-0174-1000-0000-00004b9b35cc", "mock", "description", "http://uri:8888")
 
-	entity, err := testUpdateRegistryClient(t, &mockEntity, 200)
+	entity, err := testUpdateFlowRegistryClient(t, &mockEntity, 200)
 	assert.Nil(err)
 	assert.NotNil(entity)
 
-	entity, err = testUpdateRegistryClient(t, &mockEntity, 404)
+	entity, err = testUpdateFlowRegistryClient(t, &mockEntity, 404)
 	assert.IsType(ErrNifiClusterReturned404, err)
 	assert.Nil(entity)
 
-	entity, err = testUpdateRegistryClient(t, &mockEntity, 500)
+	entity, err = testUpdateFlowRegistryClient(t, &mockEntity, 500)
 	assert.IsType(ErrNifiClusterNotReturned200, err)
 	assert.Nil(entity)
 }
 
-func testUpdateRegistryClient(t *testing.T, entity *nigoapi.RegistryClientEntity, status int) (*nigoapi.RegistryClientEntity, error) {
+func testUpdateFlowRegistryClient(t *testing.T, entity *nigoapi.FlowRegistryClientEntity, status int) (*nigoapi.FlowRegistryClientEntity, error) {
 
 	cluster := testClusterMock(t)
 
@@ -130,25 +130,25 @@ func testUpdateRegistryClient(t *testing.T, entity *nigoapi.RegistryClientEntity
 				entity)
 		})
 
-	return client.UpdateRegistryClient(*entity)
+	return client.UpdateFlowRegistryClient(*entity)
 }
 
-func TestRemoveRegistryClient(t *testing.T) {
+func TestRemoveFlowRegistryClient(t *testing.T) {
 	assert := assert.New(t)
 
-	mockEntity := MockRegistryClient("16cfd2ec-0174-1000-0000-00004b9b35cc", "mock", "description", "http://uri:8888")
+	mockEntity := MockFlowRegistryClient("16cfd2ec-0174-1000-0000-00004b9b35cc", "mock", "description", "http://uri:8888")
 
-	err := testRemoveRegistryClient(t, &mockEntity, 200)
+	err := testRemoveFlowRegistryClient(t, &mockEntity, 200)
 	assert.Nil(err)
 
-	err = testRemoveRegistryClient(t, &mockEntity, 404)
+	err = testRemoveFlowRegistryClient(t, &mockEntity, 404)
 	assert.Nil(err)
 
-	err = testRemoveRegistryClient(t, &mockEntity, 500)
+	err = testRemoveFlowRegistryClient(t, &mockEntity, 500)
 	assert.IsType(ErrNifiClusterNotReturned200, err)
 }
 
-func testRemoveRegistryClient(t *testing.T, entity *nigoapi.RegistryClientEntity, status int) error {
+func testRemoveFlowRegistryClient(t *testing.T, entity *nigoapi.FlowRegistryClientEntity, status int) error {
 
 	cluster := testClusterMock(t)
 
@@ -168,14 +168,14 @@ func testRemoveRegistryClient(t *testing.T, entity *nigoapi.RegistryClientEntity
 				entity)
 		})
 
-	return client.RemoveRegistryClient(*entity)
+	return client.RemoveFlowRegistryClient(*entity)
 }
 
-func MockRegistryClient(id, name, description, uri string) nigoapi.RegistryClientEntity {
+func MockFlowRegistryClient(id, name, description, uri string) nigoapi.FlowRegistryClientEntity {
 	var version int64 = 10
-	return nigoapi.RegistryClientEntity{
+	return nigoapi.FlowRegistryClientEntity{
 		Id: id,
-		Component: &nigoapi.RegistryDto{
+		Component: &nigoapi.FlowRegistryClientDto{
 			Id:          id,
 			Name:        name,
 			Description: description,
