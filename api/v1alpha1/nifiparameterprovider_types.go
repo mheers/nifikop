@@ -26,13 +26,15 @@ import (
 // NifiParameterProviderSpec defines the desired state of NifiParameterProvider
 type NifiParameterProviderSpec struct {
 	// the Type of the Parameter Provider.
-	Type string `json:"type"`
+	Type ParameterProviderType `json:"type"`
+	// contains the reference to the NifiCluster with the one the parameter context is linked.
+	ClusterRef ClusterReference `json:"clusterRef,omitempty"`
 }
 
 // NifiParameterProviderStatus defines the observed state of NifiParameterProvider
 type NifiParameterProviderStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// the nifi parameter provider id.
+	Id string `json:"id"`
 }
 
 //+kubebuilder:object:root=true
@@ -58,4 +60,27 @@ type NifiParameterProviderList struct {
 
 func init() {
 	SchemeBuilder.Register(&NifiParameterProvider{}, &NifiParameterProviderList{})
+}
+
+func (d *NifiParameterProviderSpec) GetNifiType() ParameterProviderNifiType {
+	switch d.Type {
+	case AwsSecretsManagerParameterProviderType:
+		return AwsSecretsManagerParameterProviderNifiType
+	case DatabaseParameterProviderType:
+		return DatabaseParameterProviderNifiType
+	case EnvironmentVariableParameterProviderType:
+		return EnvironmentVariableParameterProviderNifiType
+	case FileParameterProviderType:
+		return FileParameterProviderNifiType
+	case GcpSecretManagerParameterProviderType:
+		return GcpSecretManagerParameterProviderNifiType
+	case HashiCorpVaultParameterProviderType:
+		return HashiCorpVaultParameterProviderNifiType
+	default:
+		return UnknownProviderNifiType
+	}
+}
+
+func (d *NifiParameterProviderSpec) IsTypeValid() bool {
+	return d.GetNifiType() != UnknownProviderNifiType
 }

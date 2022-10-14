@@ -98,6 +98,11 @@ type NifiClient interface {
 	CreateParameterContextUpdateRequest(contextId string, entity nigoapi.ParameterContextEntity) (*nigoapi.ParameterContextUpdateRequestEntity, error)
 	GetParameterContextUpdateRequest(contextId, id string) (*nigoapi.ParameterContextUpdateRequestEntity, error)
 
+	// Parameter provider func
+	GetParameterProviders() ([]nigoapi.ParameterProviderEntity, error)
+	GetParameterProvider(id string) (*nigoapi.ParameterProviderEntity, error)
+	CreateParameterProvider(entity nigoapi.ParameterProviderEntity) (*nigoapi.ParameterProviderEntity, error)
+
 	// User groups func
 	GetUserGroups() ([]nigoapi.UserGroupEntity, error)
 	GetUserGroup(id string) (*nigoapi.UserGroupEntity, error)

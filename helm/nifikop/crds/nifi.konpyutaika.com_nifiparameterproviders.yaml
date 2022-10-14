@@ -36,8 +36,26 @@ spec:
           spec:
             description: NifiParameterProviderSpec defines the desired state of NifiParameterProvider
             properties:
+              clusterRef:
+                description: contains the reference to the NifiCluster with the one
+                  the parameter context is linked.
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                type: object
               type:
                 description: the Type of the Parameter Provider.
+                enum:
+                - AwsSecretsManager
+                - Database
+                - EnvironmentVariable
+                - File
+                - GcpSecretManager
+                - HashiCorpVault
                 type: string
             required:
             - type
@@ -45,6 +63,12 @@ spec:
           status:
             description: NifiParameterProviderStatus defines the observed state of
               NifiParameterProvider
+            properties:
+              id:
+                description: the nifi parameter provider id.
+                type: string
+            required:
+            - id
             type: object
         type: object
     served: true

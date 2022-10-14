@@ -462,3 +462,40 @@ const (
 	SyncOnce   DataflowSyncMode = "once"
 	SyncAlways DataflowSyncMode = "always"
 )
+
+// +kubebuilder:validation:Enum={"AwsSecretsManager", "Database", "EnvironmentVariable", "File", "GcpSecretManager", "HashiCorpVault"}
+type ParameterProviderType string
+
+const (
+	// Fetches parameters from AWS SecretsManager.
+	AwsSecretsManagerParameterProviderType ParameterProviderType = "AwsSecretsManager"
+	// Fetches parameters from database tables.
+	DatabaseParameterProviderType ParameterProviderType = "Database"
+	// Fetches parameters from environment variables.
+	EnvironmentVariableParameterProviderType ParameterProviderType = "EnvironmentVariable"
+	// Fetches parameters from files.
+	FileParameterProviderType ParameterProviderType = "File"
+	// Fetches parameters from GCP Secret Manager.
+	GcpSecretManagerParameterProviderType ParameterProviderType = "GcpSecretManager"
+	// Fetches parameters from HashiCorp Vault Key/Value Secrets.
+	HashiCorpVaultParameterProviderType ParameterProviderType = "HashiCorpVault"
+)
+
+type ParameterProviderNifiType string
+
+const (
+	// Nifi type for AwsSecretsManagerParameterProviderType.
+	AwsSecretsManagerParameterProviderNifiType ParameterProviderNifiType = "org.apache.nifi.parameter.aws.AwsSecretsManagerParameterProvider"
+	// Nifi type for DatabaseParameterProviderType.
+	DatabaseParameterProviderNifiType ParameterProviderNifiType = "org.apache.nifi.parameter.DatabaseParameterProvider"
+	// Nifi type for EnvironmentVariableParameterProviderType.
+	EnvironmentVariableParameterProviderNifiType ParameterProviderNifiType = "org.apache.nifi.parameter.EnvironmentVariableParameterProvider"
+	// Nifi type for FileParameterProviderType.
+	FileParameterProviderNifiType ParameterProviderNifiType = "org.apache.nifi.parameter.FileParameterProvider"
+	// Nifi type for GcpSecretManagerParameterProviderType.
+	GcpSecretManagerParameterProviderNifiType ParameterProviderNifiType = "org.apache.nifi.parameter.gcp.GcpSecretManagerParameterProvider"
+	// Nifi type for HashiCorpVaultParameterProviderType.
+	HashiCorpVaultParameterProviderNifiType ParameterProviderNifiType = "org.apache.nifi.vault.hashicorp.HashiCorpVaultParameterProvider"
+	// Nifi type for an unknown type.
+	UnknownProviderNifiType ParameterProviderNifiType = "unknown"
+)
