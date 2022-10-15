@@ -76,4 +76,62 @@ func updateParameterProviderEntity(parameterProvider *v1alpha1.NifiParameterProv
 
 	entity.Component.Name = parameterProvider.Name
 	entity.Component.Type_ = string(parameterProvider.Spec.GetNifiType())
+
+	if parameterProvider.Spec.GetNifiType() == v1alpha1.FileParameterProviderNifiType {
+		entity.Component.Properties = map[string]string{
+			"parameter-group-directories": parameterProvider.Spec.FileProviderConfig.GroupDirectories,
+			"parameter-value-byte-limit":  parameterProvider.Spec.FileProviderConfig.ValueByteLimit,
+			"parameter-value-encoding":    parameterProvider.Spec.FileProviderConfig.ValueEncoding,
+		}
+	}
+}
+
+func SyncParameterProvider(
+	parameterProvider *v1alpha1.NifiParameterProvider,
+	config *clientconfig.NifiConfig) (*v1alpha1.NifiParameterProviderStatus, error) {
+
+	nClient, err := common.NewClusterConnection(log, config)
+	if err != nil {
+		return nil, err
+	}
+
+	entity, err := nClient.GetParameterProvider(parameterProvider.Status.Id)
+	if err := clientwrappers.ErrorGetOperation(log, err, "Get parameter-provider"); err != nil {
+		return nil, err
+	}
+
+	if !parameterProviderIsSync(parameterProvider, entity) {
+		updateParameterProviderEntity(parameterProvider, entity)
+		entity, err = nClient.UpdateParameterProvider(*entity)
+		if err := clientwrappers.ErrorUpdateOperation(log, err, "Update parameter-provider"); err != nil {
+			return nil, err
+		}
+	}
+
+	status := parameterProvider.Status
+	// status.Version = entity.Revision.Version
+	status.Id = entity.Id
+
+	return &status, nil
+}
+
+func parameterProviderIsSync(
+	parameterProvider *v1alpha1.NifiParameterProvider,
+	entity *nigoapi.ParameterProviderEntity) bool {
+
+	e := nigoapi.ParameterProviderEntity{}
+	updateParameterProviderEntity(parameterProvider, &e)
+
+	if e.Component.Type_ != entity.Component.Type_ {
+		return false
+	}
+
+	if (parameterProvider.Spec.GetNifiType() == v1alpha1.FileParameterProviderNifiType) &&
+		(e.Component.Properties["parameter-group-directories"] != entity.Component.Properties["parameter-group-directories"] ||
+			e.Component.Properties["parameter-value-byte-limit"] != entity.Component.Properties["parameter-value-byte-limit"] ||
+			e.Component.Properties["parameter-value-encoding"] != entity.Component.Properties["parameter-value-encoding"]) {
+		return false
+	}
+
+	return e.Component.Name == entity.Component.Name
 }

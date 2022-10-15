@@ -102,6 +102,7 @@ type NifiClient interface {
 	GetParameterProviders() ([]nigoapi.ParameterProviderEntity, error)
 	GetParameterProvider(id string) (*nigoapi.ParameterProviderEntity, error)
 	CreateParameterProvider(entity nigoapi.ParameterProviderEntity) (*nigoapi.ParameterProviderEntity, error)
+	UpdateParameterProvider(entity nigoapi.ParameterProviderEntity) (*nigoapi.ParameterProviderEntity, error)
 
 	// User groups func
 	GetUserGroups() ([]nigoapi.UserGroupEntity, error)

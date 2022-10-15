@@ -47,6 +47,35 @@ spec:
                 required:
                 - name
                 type: object
+              fileProviderConfig:
+                description: configuration for a File Parameter Provider
+                properties:
+                  groupDirectories:
+                    description: A comma-separated list of directory absolute paths
+                      that will map to named parameter groups. Each directory that
+                      contains files will map to a parameter group, named after the
+                      innermost directory in the path. Files inside the directory
+                      will map to parameter names, whose values are the content of
+                      each respective file.
+                    type: string
+                  valueByteLimit:
+                    default: 256 B
+                    description: The maximum byte size of a parameter value. Since
+                      parameter values are pulled from the contents of files, this
+                      is a safeguard that can prevent memory issues if large files
+                      are included.
+                    type: string
+                  valueEncoding:
+                    default: base64
+                    description: Indicates how parameter values are encoded inside
+                      Parameter files.
+                    enum:
+                    - plaintext
+                    - base64
+                    type: string
+                required:
+                - groupDirectories
+                type: object
               type:
                 description: the Type of the Parameter Provider.
                 enum:

@@ -29,6 +29,20 @@ type NifiParameterProviderSpec struct {
 	Type ParameterProviderType `json:"type"`
 	// contains the reference to the NifiCluster with the one the parameter context is linked.
 	ClusterRef ClusterReference `json:"clusterRef,omitempty"`
+	// configuration for a File Parameter Provider
+	FileProviderConfig *FileProviderConfiguration `json:"fileProviderConfig,omitempty"`
+}
+
+type FileProviderConfiguration struct {
+	// A comma-separated list of directory absolute paths that will map to named parameter groups. Each directory that contains files will map to a parameter group, named after the innermost directory in the path. Files inside the directory will map to parameter names, whose values are the content of each respective file.
+	GroupDirectories string `json:"groupDirectories"`
+	// 	The maximum byte size of a parameter value. Since parameter values are pulled from the contents of files, this is a safeguard that can prevent memory issues if large files are included.
+	// +kubebuilder:default="256 B"
+	ValueByteLimit string `json:"valueByteLimit,omitempty"`
+	// Indicates how parameter values are encoded inside Parameter files.
+	// +kubebuilder:validation:Enum={"plaintext","base64"}
+	// +kubebuilder:default="base64"
+	ValueEncoding string `json:"valueEncoding,omitempty"`
 }
 
 // NifiParameterProviderStatus defines the observed state of NifiParameterProvider

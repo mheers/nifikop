@@ -226,23 +226,17 @@ func (r *NifiParameterProviderReconciler) Reconcile(ctx context.Context, req ctr
 	// Sync ParameterProvider resource with NiFi side component
 	r.Recorder.Event(instance, corev1.EventTypeNormal, "Synchronizing",
 		fmt.Sprintf("Synchronizing parameter provider %s", instance.Name))
-	// status, err := parametercontext.SyncParameterContext(instance, parameterSecrets, parameterContextRefs, clientConfig)
-	// if status != nil {
-	// 	instance.Status = *status
-	// 	if err := r.Client.Status().Update(ctx, instance); err != nil {
-	// 		return RequeueWithError(r.Log, "failed to update status for NifiParameterContext "+instance.Name, err)
-	// 	}
-	// }
-	// if err != nil {
-	// 	switch errors.Cause(err).(type) {
-	// 	case errorfactory.NifiParameterContextUpdateRequestRunning:
-	// 		return RequeueAfter(interval)
-	// 	default:
-	// 		r.Recorder.Event(instance, corev1.EventTypeNormal, "SynchronizingFailed",
-	// 			fmt.Sprintf("Synchronizing parameter context %s failed", instance.Name))
-	// 		return RequeueWithError(r.Log, "failed to sync NifiParameterContext "+instance.Name, err)
-	// 	}
-	// }
+	status, err := parameterprovider.SyncParameterProvider(instance, clientConfig)
+	if err != nil {
+		r.Recorder.Event(instance, corev1.EventTypeNormal, "SynchronizingFailed",
+			fmt.Sprintf("Synchronizing parameter provider %s failed", instance.Name))
+		return RequeueWithError(r.Log, "failed to sync NifiParameterProvider "+instance.Name, err)
+	}
+
+	instance.Status = *status
+	if err := r.Client.Status().Update(ctx, instance); err != nil {
+		return RequeueWithError(r.Log, "failed to update status for NifiParameterProvider "+instance.Name, err)
+	}
 
 	r.Recorder.Event(instance, corev1.EventTypeNormal, "Synchronized",
 		fmt.Sprintf("Synchronized parameter provider %s", instance.Name))
