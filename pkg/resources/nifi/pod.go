@@ -2,9 +2,10 @@ package nifi
 
 import (
 	"fmt"
-	"github.com/konpyutaika/nifikop/api/v1"
 	"sort"
 	"strings"
+
+	v1 "github.com/konpyutaika/nifikop/api/v1"
 
 	"go.uber.org/zap"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -411,6 +412,33 @@ func (r *Reconciler) createNifiNodeContainer(nodeConfig *v1.NodeConfig, id int32
 		r.NifiCluster.Spec.Service.GetServiceTemplate())
 
 	resolveIp := ""
+	importCerts := ""
+	exec := "bin/nifi.sh run"
+
+	debug := false
+	if debug == true {
+		exec = "sleep infinity"
+	}
+
+	autoImportCerts := false
+	if autoImportCerts == true {
+		importCerts = fmt.Sprintf(`echo "Importing certs"
+# Copy the cacerts file to the home directory of the user
+cp $JAVA_HOME/lib/security/cacerts $HOME/mycacerts
+
+chmod 644 $HOME/mycacerts
+
+# Import all SSL certificates from /etc/ssl/certs into the copied truststore
+for cert_file in /etc/ssl/certs/*.{pem,crt}; do
+    alias=$(basename $cert_file | cut -d. -f1)
+    keytool -import -noprompt -alias $alias -file $cert_file -storepass changeit -keystore $HOME/mycacerts || true
+done
+
+# Set the javax.net.ssl.trustStore system property to point to the copied truststore
+export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=$HOME/mycacerts"
+echo "Truststore is now set to $JAVA_TOOL_OPTIONS"
+echo "Certs imported"`)
+	}
 
 	if r.NifiCluster.Spec.Service.HeadlessEnabled {
 		resolveIp = fmt.Sprintf(`echo "Waiting for host to be reachable"
@@ -432,7 +460,8 @@ echo "Hostname is successfully binded withy IP adress"`, nodeAddress, nodeAddres
 	}
 	command := []string{"bash", "-ce", fmt.Sprintf(`cp ${NIFI_HOME}/tmp/* ${NIFI_HOME}/conf/
 %s
-exec bin/nifi.sh run`, resolveIp)}
+%s
+exec %s`, resolveIp, importCerts, exec)}
 
 	return corev1.Container{
 		Name:            ContainerName,
