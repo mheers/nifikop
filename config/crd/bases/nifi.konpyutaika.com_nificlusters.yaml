@@ -27,6 +27,8 @@ spec:
             type: object
           spec:
             properties:
+              autoImportCerts:
+                type: boolean
               clientType:
                 enum:
                 - tls
@@ -36,6 +38,8 @@ spec:
                 type: string
               controllerUserIdentity:
                 type: string
+              debug:
+                type: boolean
               disruptionBudget:
                 properties:
                   budget:
@@ -1044,6 +1048,7 @@ spec:
                                         - kind
                                         - name
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resources:
                                         properties:
                                           claims:
@@ -1769,6 +1774,7 @@ spec:
                                 - kind
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               resources:
                                 properties:
                                   claims:
@@ -2099,6 +2105,7 @@ spec:
                                             - kind
                                             - name
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                           resources:
                                             properties:
                                               claims:
@@ -2824,6 +2831,7 @@ spec:
                                     - kind
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   resources:
                                     properties:
                                       claims:
@@ -4409,6 +4417,8 @@ spec:
             type: object
           spec:
             properties:
+              autoImportCerts:
+                type: boolean
               clientType:
                 enum:
                 - tls
@@ -4418,6 +4428,8 @@ spec:
                 type: string
               controllerUserIdentity:
                 type: string
+              debug:
+                type: boolean
               disruptionBudget:
                 properties:
                   budget:
@@ -5418,6 +5430,7 @@ spec:
                                         - kind
                                         - name
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       resources:
                                         properties:
                                           claims:
@@ -6132,6 +6145,7 @@ spec:
                                 - kind
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               resources:
                                 properties:
                                   claims:
@@ -6462,6 +6476,7 @@ spec:
                                             - kind
                                             - name
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                           resources:
                                             properties:
                                               claims:
@@ -7176,6 +7191,7 @@ spec:
                                     - kind
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   resources:
                                     properties:
                                       claims:

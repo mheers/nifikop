@@ -272,6 +272,7 @@ spec:
                                       - kind
                                       - name
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     resources:
                                       properties:
                                         claims:
@@ -997,6 +998,7 @@ spec:
                               - kind
                               - name
                               type: object
+                              x-kubernetes-map-type: atomic
                             resources:
                               properties:
                                 claims:
