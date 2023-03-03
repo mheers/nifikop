@@ -502,13 +502,11 @@ func (r *Reconciler) createNifiNodeContainer(nodeConfig *v1.NodeConfig, id int32
 	importCerts := ""
 	exec := "bin/nifi.sh run"
 
-	debug := false
-	if debug == true {
+	if r.NifiCluster.Spec.Debug == true {
 		exec = "sleep infinity"
 	}
 
-	autoImportCerts := false
-	if autoImportCerts == true {
+	if r.NifiCluster.Spec.AutoImportCerts == true {
 		importCerts = fmt.Sprintf(`echo "Importing certs"
 # Copy the cacerts file to the home directory of the user
 cp $JAVA_HOME/lib/security/cacerts $HOME/mycacerts
