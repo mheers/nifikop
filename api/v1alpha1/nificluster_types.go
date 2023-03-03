@@ -63,6 +63,10 @@ type NifiClusterSpec struct {
 	// it will stay in pending state. If set to false the operator also tries to schedule the nifi node to a unique node
 	// but if the node number is insufficient the nifi node will be scheduled to a node where a nifi node is already running.
 	OneNifiNodePerNode bool `json:"oneNifiNodePerNode,omitempty"`
+	// debug
+	Debug bool `json:"debug,omitempty"`
+	// autoImportCerts
+	AutoImportCerts bool `json:"autoImportCerts,omitempty"`
 	// propage
 	PropagateLabels bool `json:"propagateLabels,omitempty"`
 	// managedAdminUsers contains the list of users that will be added to the managed admin group (with all rights)

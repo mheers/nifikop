@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"fmt"
 
-	"github.com/konpyutaika/nifikop/api/v1"
+	v1 "github.com/konpyutaika/nifikop/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -65,6 +65,8 @@ func convertNifiClusterSpec(src *NifiClusterSpec, dst *v1.NifiCluster) error {
 	dst.Spec.InitContainers = src.InitContainers
 	dst.Spec.ClusterImage = src.ClusterImage
 	dst.Spec.OneNifiNodePerNode = src.OneNifiNodePerNode
+	dst.Spec.Debug = src.Debug
+	dst.Spec.AutoImportCerts = src.AutoImportCerts
 	dst.Spec.PropagateLabels = src.PropagateLabels
 	if src.NodeUserIdentityTemplate != nil {
 		dst.Spec.NodeUserIdentityTemplate = &(*src.NodeUserIdentityTemplate)
@@ -502,6 +504,8 @@ func convertNifiClusterFromSpec(src *v1.NifiClusterSpec, dst *NifiCluster) error
 	dst.Spec.InitContainers = src.InitContainers
 	dst.Spec.ClusterImage = src.ClusterImage
 	dst.Spec.OneNifiNodePerNode = src.OneNifiNodePerNode
+	dst.Spec.Debug = src.Debug
+	dst.Spec.AutoImportCerts = src.AutoImportCerts
 	dst.Spec.PropagateLabels = src.PropagateLabels
 	if src.NodeUserIdentityTemplate != nil {
 		dst.Spec.NodeUserIdentityTemplate = &(*src.NodeUserIdentityTemplate)
