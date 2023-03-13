@@ -48,6 +48,12 @@ spec:
                   create:
                     type: boolean
                 type: object
+              extensionImages:
+                items:
+                  type: string
+                type: array
+              extensionInstallerImage:
+                type: string
               externalServices:
                 items:
                   properties:
@@ -4120,6 +4126,12 @@ spec:
                   create:
                     type: boolean
                 type: object
+              extensionImages:
+                items:
+                  type: string
+                type: array
+              extensionInstallerImage:
+                type: string
               externalServices:
                 items:
                   properties:

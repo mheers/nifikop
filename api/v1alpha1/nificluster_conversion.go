@@ -64,6 +64,8 @@ func convertNifiClusterSpec(src *NifiClusterSpec, dst *v1.NifiCluster) error {
 	dst.Spec.InitContainerImage = src.InitContainerImage
 	dst.Spec.InitContainers = src.InitContainers
 	dst.Spec.ClusterImage = src.ClusterImage
+	dst.Spec.ExtensionImages = src.ExtensionImages
+	dst.Spec.ExtensionInstallerImage = src.ExtensionInstallerImage
 	dst.Spec.OneNifiNodePerNode = src.OneNifiNodePerNode
 	dst.Spec.Debug = src.Debug
 	dst.Spec.AutoImportCerts = src.AutoImportCerts
@@ -503,6 +505,8 @@ func convertNifiClusterFromSpec(src *v1.NifiClusterSpec, dst *NifiCluster) error
 	dst.Spec.InitContainerImage = src.InitContainerImage
 	dst.Spec.InitContainers = src.InitContainers
 	dst.Spec.ClusterImage = src.ClusterImage
+	dst.Spec.ExtensionImages = src.ExtensionImages
+	dst.Spec.ExtensionInstallerImage = src.ExtensionInstallerImage
 	dst.Spec.OneNifiNodePerNode = src.OneNifiNodePerNode
 	dst.Spec.Debug = src.Debug
 	dst.Spec.AutoImportCerts = src.AutoImportCerts

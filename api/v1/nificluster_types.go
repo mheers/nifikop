@@ -60,6 +60,10 @@ type NifiClusterSpec struct {
 	InitContainers []corev1.Container `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
 	// clusterImage can specify the whole NiFi cluster image in one place
 	ClusterImage string `json:"clusterImage,omitempty"`
+	// extensionImages
+	ExtensionImages []string `json:"extensionImages,omitempty"`
+	// extensionInstallerImage
+	ExtensionInstallerImage string `json:"extensionInstallerImage,omitempty"`
 	// oneNifiNodePerNode if set to true every nifi node is started on a new node, if there is not enough node to do that
 	// it will stay in pending state. If set to false the operator also tries to schedule the nifi node to a unique node
 	// but if the node number is insufficient the nifi node will be scheduled to a node where a nifi node is already running.
@@ -589,6 +593,14 @@ func (nSpec *NifiClusterSpec) GetInitContainerImage() string {
 		return "bash"
 	}
 	return nSpec.InitContainerImage
+}
+
+func (nSpec *NifiClusterSpec) GetExtensionInstallerImage() string {
+
+	if nSpec.ExtensionInstallerImage == "" {
+		return "mheers/oras:v1.0.0-rc.2"
+	}
+	return nSpec.ExtensionInstallerImage
 }
 
 func (lConfig *ListenersConfig) GetClusterDomain() string {

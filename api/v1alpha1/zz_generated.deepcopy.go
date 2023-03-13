@@ -462,6 +462,11 @@ func (in *NifiClusterSpec) DeepCopyInto(out *NifiClusterSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ExtensionImages != nil {
+		in, out := &in.ExtensionImages, &out.ExtensionImages
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.ManagedAdminUsers != nil {
 		in, out := &in.ManagedAdminUsers, &out.ManagedAdminUsers
 		*out = make([]ManagedUser, len(*in))

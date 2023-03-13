@@ -41,6 +41,7 @@ const (
 
 func (r *Reconciler) pod(node v1.Node, nodeConfig *v1.NodeConfig, pvcs []corev1.PersistentVolumeClaim, log zap.Logger) runtimeClient.Object {
 	zkAddress := r.NifiCluster.Spec.ZKAddress
+	extensionImages := r.NifiCluster.Spec.ExtensionImages
 	dataVolume, dataVolumeMount := generateDataVolumeAndVolumeMount(pvcs)
 
 	volume := []corev1.Volume{}
@@ -49,6 +50,19 @@ func (r *Reconciler) pod(node v1.Node, nodeConfig *v1.NodeConfig, pvcs []corev1.
 
 	volume = append(volume, dataVolume...)
 	volumeMount = append(volumeMount, dataVolumeMount...)
+
+	extensionVolume := corev1.Volume{
+		Name: "extension-volume",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	extensionVolumeMount := corev1.VolumeMount{
+		Name:      "extension-volume",
+		MountPath: "/extensions",
+	}
+	volume = append(volume, extensionVolume)
+	volumeMount = append(volumeMount, extensionVolumeMount)
 
 	if len(nodeConfig.ExternalVolumeConfigs) > 0 {
 		for _, volumeConfig := range nodeConfig.ExternalVolumeConfigs {
@@ -176,6 +190,40 @@ do
 
 	sleep 1
 done
+`},
+					Resources: generateInitContainerResources(),
+				},
+				{
+					Name:            "extension-installer",
+					Image:           r.NifiCluster.Spec.GetExtensionInstallerImage(),
+					ImagePullPolicy: nodeConfig.GetImagePullPolicy(),
+					Env: []corev1.EnvVar{
+						{
+							Name:  "EXTENSION_IMAGES",
+							Value: strings.Join(extensionImages, ","),
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						extensionVolumeMount,
+					},
+					// The extensionInstaller init installs the extensions
+					Command: []string{"bash", "-c", `
+set -e
+
+echo "Installing extensions from images: ${EXTENSION_IMAGES}"
+if [ -z "${EXTENSION_IMAGES}" ]; then
+	echo "No extension image specified, skipping extension installation"
+	exit 0
+fi
+
+IFS=',' read -r -a extension_images <<< "${EXTENSION_IMAGES}"
+for extension_image in "${extension_images[@]}"
+do
+	echo "Pulling extension image: ${extension_image}"
+	cd /extensions && oras pull ${extension_image}
+done
+
+echo "Finished installing extensions"
 `},
 					Resources: generateInitContainerResources(),
 				},
@@ -412,15 +460,26 @@ func (r *Reconciler) createNifiNodeContainer(nodeConfig *v1.NodeConfig, id int32
 		r.NifiCluster.Spec.Service.GetServiceTemplate())
 
 	resolveIp := ""
-	importCerts := ""
-	exec := "bin/nifi.sh run"
 
-	if r.NifiCluster.Spec.Debug == true {
+	exec := "bin/nifi.sh run"
+	if r.NifiCluster.Spec.Debug {
 		exec = "sleep infinity"
 	}
 
-	if r.NifiCluster.Spec.AutoImportCerts == true {
-		importCerts = fmt.Sprintf(`echo "Importing certs"
+	nifiHome := "/opt/nifi/nifi-current"
+	extensionDir := nifiHome + "/extensions"
+
+	importExtensions := ""
+	if r.NifiCluster.Spec.ExtensionImages != nil && len(r.NifiCluster.Spec.ExtensionImages) > 0 {
+		importExtensions = fmt.Sprintf(`echo "Importing extensions"
+# Copy the extensions to the home directory of the user
+cp -r /extensions/* %s/
+echo "Extensions imported"`, extensionDir)
+	}
+
+	importCerts := ""
+	if r.NifiCluster.Spec.AutoImportCerts {
+		importCerts = `echo "Importing certs"
 # Copy the cacerts file to the home directory of the user
 cp $JAVA_HOME/lib/security/cacerts $HOME/mycacerts
 
@@ -435,7 +494,7 @@ done
 # Set the javax.net.ssl.trustStore system property to point to the copied truststore
 export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=$HOME/mycacerts"
 echo "Truststore is now set to $JAVA_TOOL_OPTIONS"
-echo "Certs imported"`)
+echo "Certs imported"`
 	}
 
 	if r.NifiCluster.Spec.Service.HeadlessEnabled {
@@ -459,7 +518,8 @@ echo "Hostname is successfully binded withy IP adress"`, nodeAddress, nodeAddres
 	command := []string{"bash", "-ce", fmt.Sprintf(`cp ${NIFI_HOME}/tmp/* ${NIFI_HOME}/conf/
 %s
 %s
-exec %s`, resolveIp, importCerts, exec)}
+%s
+exec %s`, resolveIp, importCerts, importExtensions, exec)}
 
 	return corev1.Container{
 		Name:            ContainerName,
