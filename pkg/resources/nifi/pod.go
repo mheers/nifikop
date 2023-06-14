@@ -502,27 +502,44 @@ func (r *Reconciler) createNifiNodeContainer(nodeConfig *v1.NodeConfig, id int32
 	importCerts := ""
 	exec := "bin/nifi.sh run"
 
-	if r.NifiCluster.Spec.Debug == true {
+	if r.NifiCluster.Spec.Debug {
 		exec = "sleep infinity"
 	}
 
-	if r.NifiCluster.Spec.AutoImportCerts == true {
-		importCerts = fmt.Sprintf(`echo "Importing certs"
-# Copy the cacerts file to the home directory of the user
-cp $JAVA_HOME/lib/security/cacerts $HOME/mycacerts
+	if r.NifiCluster.Spec.AutoImportCerts {
+		importCerts = fmt.Sprintf(`
+echo "Importing certs"
 
-chmod 644 $HOME/mycacerts
+prop_replace () {
+	target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
+	echo "updating ${1} in ${target_file}"
+	if egrep "^${1}=" ${target_file} &> /dev/null; then
+		sed -i -e "s|^$1=.*$|$1=$2|"  ${target_file}
+	else
+		echo ${1}=${2} >> ${target_file}
+	fi
+}
+
+# Copy the cacerts file to the home directory of the user
+cp /var/run/secrets/java.io/keystores/server/truststore.jks $HOME/truststore.jks
+
+chmod 644 $HOME/truststore.jks
 
 # Import all SSL certificates from /etc/ssl/certs into the copied truststore
 for cert_file in /etc/ssl/certs/*.{pem,crt}; do
     alias=$(basename $cert_file | cut -d. -f1)
-    keytool -import -noprompt -alias $alias -file $cert_file -storepass changeit -keystore $HOME/mycacerts || true
+    keytool -import -noprompt -alias $alias -file $cert_file -storepass $(cat /var/run/secrets/java.io/keystores/server/password) -keystore $HOME/truststore.jks || true
+	echo "Imported $cert_file with alias $alias"
 done
 
 # Set the javax.net.ssl.trustStore system property to point to the copied truststore
-export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=$HOME/mycacerts"
+export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=$HOME/truststore.jks -Djavax.net.ssl.trustStorePassword=$(cat /var/run/secrets/java.io/keystores/server/password)"
 echo "Truststore is now set to $JAVA_TOOL_OPTIONS"
-echo "Certs imported"`)
+
+prop_replace nifi.security.truststore /home/nifi/truststore.jks
+
+echo "Certs imported"
+`)
 	}
 
 	if r.NifiCluster.Spec.Service.HeadlessEnabled {
