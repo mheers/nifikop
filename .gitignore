@@ -131,3 +131,4 @@ testbin/*
 
 vendor/
 __debug_bin
+*.tgz
