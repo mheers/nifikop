@@ -142,12 +142,23 @@ func (r *Reconciler) pod(node v1.Node, nodeConfig *v1.NodeConfig, pvcs []corev1.
 				RunAsUser:    nodeConfig.GetRunAsUser(),
 				RunAsNonRoot: func(b bool) *bool { return &b }(true),
 				FSGroup:      nodeConfig.GetFSGroup(),
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
 			},
 			InitContainers: r.injectAdditionalEnvVars(append(initContainers, []corev1.Container{
 				{
 					Name:            "zookeeper",
 					Image:           r.NifiCluster.Spec.GetInitContainerImage(),
 					ImagePullPolicy: nodeConfig.GetImagePullPolicy(),
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: util.BoolPointer(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{
+								"ALL",
+							},
+						},
+					},
 					Env: []corev1.EnvVar{
 						{
 							Name:  "ZK_ADDRESS",
@@ -588,10 +599,18 @@ exec %s`, resolveIp, importCerts, singleUser, exec)}
 }
 
 func (r *Reconciler) injectAdditionalEnvVars(containers []corev1.Container) (injectedContainers []corev1.Container) {
-
 	for _, container := range containers {
 		container.Env = append(container.Env, r.NifiCluster.Spec.ReadOnlyConfig.AdditionalSharedEnvs...)
+		container.SecurityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: util.BoolPointer(false),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{
+					"ALL",
+				},
+			},
+		}
 		injectedContainers = append(injectedContainers, container)
 	}
+
 	return
 }
