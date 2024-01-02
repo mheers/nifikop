@@ -3,8 +3,9 @@ package util
 import (
 	"testing"
 
-	v1 "github.com/konpyutaika/nifikop/api/v1"
 	corev1 "k8s.io/api/core/v1"
+
+	v1 "github.com/konpyutaika/nifikop/api/v1"
 )
 
 func TestSubtractNodes(t *testing.T) {
@@ -199,6 +200,12 @@ func TestStringSliceRemove(t *testing.T) {
 	if results := StringSliceRemove(listCopy, "a"); len(results) != len(list)-1 ||
 		results[0] != list[1] || results[1] != list[2] {
 		t.Error("The list must have an item less")
+	}
+
+	// empty the list
+	newlist := []string{"a"}
+	if results := StringSliceRemove(newlist, "a"); len(results) != 0 {
+		t.Error("The list must be empty")
 	}
 
 	copy(listCopy, list)

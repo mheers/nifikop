@@ -3,11 +3,13 @@ package v1alpha1
 import (
 	"fmt"
 
-	v1 "github.com/konpyutaika/nifikop/api/v1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+
+	v1 "github.com/konpyutaika/nifikop/api/v1"
 )
 
-// ConvertNifiClusterTo converts a v1alpha1 to v1 (Hub)
+// ConvertNifiClusterTo converts a v1alpha1 to v1 (Hub).
 func (src *NifiCluster) ConvertTo(dst conversion.Hub) error {
 	ncV1 := dst.(*v1.NifiCluster)
 
@@ -18,7 +20,7 @@ func (src *NifiCluster) ConvertTo(dst conversion.Hub) error {
 	return nil
 }
 
-// ConvertFrom converts a v1 (Hub) to v1alpha1 (local)
+// ConvertFrom converts a v1 (Hub) to v1alpha1 (local).
 func (dst *NifiCluster) ConvertFrom(src conversion.Hub) error { //nolint
 	ncV1 := src.(*v1.NifiCluster)
 	dst.ObjectMeta = ncV1.ObjectMeta
@@ -30,7 +32,7 @@ func (dst *NifiCluster) ConvertFrom(src conversion.Hub) error { //nolint
 
 // ---- Convert TO ----
 
-// ConvertNifiClusterTo use to convert v1alpha1.NifiCluster to v1.NifiCluster
+// ConvertNifiClusterTo use to convert v1alpha1.NifiCluster to v1.NifiCluster.
 func ConvertNifiClusterTo(src *NifiCluster, dst *v1.NifiCluster) error {
 	// Copying ObjectMeta as a whole
 	dst.ObjectMeta = src.ObjectMeta
@@ -47,7 +49,7 @@ func ConvertNifiClusterTo(src *NifiCluster, dst *v1.NifiCluster) error {
 	return nil
 }
 
-// Convert the top level structs
+// Convert the top level structs.
 func convertNifiClusterSpec(src *NifiClusterSpec, dst *v1.NifiCluster) error {
 	if src == nil {
 		return nil
@@ -261,8 +263,9 @@ func convertStorageConfigs(src []StorageConfig, dst *v1.NodeConfig) {
 	dst.StorageConfigs = []v1.StorageConfig{}
 	for _, srcConfig := range src {
 		dstConfig := v1.StorageConfig{
-			Name:      srcConfig.Name,
-			MountPath: srcConfig.MountPath,
+			Name:          srcConfig.Name,
+			MountPath:     srcConfig.MountPath,
+			ReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
 			Metadata: v1.Metadata{
 				Labels:      map[string]string{},
 				Annotations: map[string]string{},
@@ -355,6 +358,8 @@ func convertInternalListeners(src []InternalListenerConfig) []v1.InternalListene
 			Type:          srcInternalListenerConfig.Type,
 			Name:          srcInternalListenerConfig.Name,
 			ContainerPort: srcInternalListenerConfig.ContainerPort,
+			// default to TCP when converting from v1alpha1 to v1
+			Protocol: corev1.ProtocolTCP,
 		})
 	}
 
@@ -411,6 +416,7 @@ func convertPortConfigs(src []PortConfig) []v1.PortConfig {
 		dstPortConfigs = append(dstPortConfigs, v1.PortConfig{
 			Port:                 srcPortConfig.Port,
 			InternalListenerName: srcPortConfig.InternalListenerName,
+			Protocol:             corev1.ProtocolTCP,
 		})
 	}
 
@@ -476,7 +482,7 @@ func convertNifiClusterPrometheusReportingTask(src PrometheusReportingTaskStatus
 
 // ---- Convert FROM ----
 
-// ConvertFrom use to convert v1alpha1.NifiCluster from v1.NifiCluster
+// ConvertFrom use to convert v1alpha1.NifiCluster from v1.NifiCluster.
 func ConvertNifiClusterFrom(dst *NifiCluster, src *v1.NifiCluster) error {
 	// Copying ObjectMeta as a whole
 	dst.ObjectMeta = src.ObjectMeta
@@ -493,7 +499,7 @@ func ConvertNifiClusterFrom(dst *NifiCluster, src *v1.NifiCluster) error {
 	return nil
 }
 
-// Convert the top level structs
+// Convert the top level structs.
 func convertNifiClusterFromSpec(src *v1.NifiClusterSpec, dst *NifiCluster) error {
 	if src == nil {
 		return nil

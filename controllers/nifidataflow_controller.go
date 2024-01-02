@@ -23,10 +23,18 @@ import (
 	"reflect"
 	"strconv"
 
-	v1 "github.com/konpyutaika/nifikop/api/v1"
-
 	"emperror.dev/errors"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	v1 "github.com/konpyutaika/nifikop/api/v1"
 	"github.com/konpyutaika/nifikop/pkg/clientwrappers/dataflow"
 	"github.com/konpyutaika/nifikop/pkg/clientwrappers/inputport"
 	"github.com/konpyutaika/nifikop/pkg/clientwrappers/outputport"
@@ -35,21 +43,12 @@ import (
 	"github.com/konpyutaika/nifikop/pkg/nificlient/config"
 	"github.com/konpyutaika/nifikop/pkg/util"
 	"github.com/konpyutaika/nifikop/pkg/util/clientconfig"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	nifiutil "github.com/konpyutaika/nifikop/pkg/util/nifi"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var dataflowFinalizer string = fmt.Sprintf("nifidataflows.%s/finalizer", v1.GroupVersion.Group)
 
-// NifiDataflowReconciler reconciles a NifiDataflow object
+// NifiDataflowReconciler reconciles a NifiDataflow object.
 type NifiDataflowReconciler struct {
 	client.Client
 	Log             zap.Logger
@@ -73,7 +72,6 @@ type NifiDataflowReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *NifiDataflowReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	var err error
 	interval := util.GetRequeueInterval(r.RequeueInterval, r.RequeueOffset)
 	// Fetch the NifiDataflow instance
@@ -87,7 +85,7 @@ func (r *NifiDataflowReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return RequeueWithError(r.Log, err.Error(), err)
 	}
 
-	patchInstance := client.MergeFrom(instance.DeepCopy())
+	patchInstance := client.MergeFromWithOptions(instance.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	// Get the last configuration viewed by the operator.
 	o, _ := patch.DefaultAnnotator.GetOriginalConfiguration(instance)
 	// Create it if not exist.
@@ -104,7 +102,7 @@ func (r *NifiDataflowReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Check if the cluster reference changed.
 	original := &v1.NifiDataflow{}
 	current := instance.DeepCopy()
-	patchCurrent := client.MergeFrom(current.DeepCopy())
+	patchCurrent := client.MergeFromWithOptions(current.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	json.Unmarshal(o, original)
 	if !v1.ClusterRefsEquals([]v1.ClusterReference{original.Spec.ClusterRef, instance.Spec.ClusterRef}) {
 		instance.Spec.ClusterRef = original.Spec.ClusterRef
@@ -119,7 +117,6 @@ func (r *NifiDataflowReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		if registryClient, err = k8sutil.LookupNifiRegistryClient(r.Client,
 			current.Spec.RegistryClientRef.Name, registryClientNamespace); err != nil {
-
 			// This shouldn't trigger anymore, but leaving it here as a safetybelt
 			if k8sutil.IsMarkedForDeletion(instance.ObjectMeta) {
 				r.Log.Info("Dataflow is already gone, there is nothing we can do",
@@ -146,7 +143,6 @@ func (r *NifiDataflowReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		if parameterContext, err = k8sutil.LookupNifiParameterContext(r.Client,
 			current.Spec.ParameterContextRef.Name, parameterContextNamespace); err != nil {
-
 			// This shouldn't trigger anymore, but leaving it here as a safetybelt
 			if k8sutil.IsMarkedForDeletion(instance.ObjectMeta) {
 				r.Log.Info("Dataflow context is already gone, there is nothing we can do",
@@ -497,7 +493,6 @@ func (r *NifiDataflowReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		instance.Status.State == v1.DataflowStateStarting ||
 		instance.Status.State == v1.DataflowStateInSync ||
 		(!instance.Spec.SyncOnce() && instance.Status.State == v1.DataflowStateRan) {
-
 		// Check if the flow is unscheduled
 		isUnscheduled, err := dataflow.IsDataflowUnscheduled(instance, clientConfig)
 		if err != nil {
@@ -591,7 +586,6 @@ func (r *NifiDataflowReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *NifiDataflowReconciler) ensureClusterLabel(ctx context.Context, cluster clientconfig.ClusterConnect,
 	flow *v1.NifiDataflow, patcher client.Patch) (*v1.NifiDataflow, error) {
-
 	labels := ApplyClusterReferenceLabel(cluster, flow.GetLabels())
 	if !reflect.DeepEqual(labels, flow.GetLabels()) {
 		flow.SetLabels(labels)
@@ -602,9 +596,8 @@ func (r *NifiDataflowReconciler) ensureClusterLabel(ctx context.Context, cluster
 
 func (r *NifiDataflowReconciler) updateAndFetchLatest(ctx context.Context,
 	flow *v1.NifiDataflow, patcher client.Patch) (*v1.NifiDataflow, error) {
-
 	typeMeta := flow.TypeMeta
-	err := r.Client.Update(ctx, flow)
+	err := r.Client.Patch(ctx, flow, patcher)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +636,6 @@ func (r *NifiDataflowReconciler) removeFinalizer(ctx context.Context, flow *v1.N
 }
 
 func (r *NifiDataflowReconciler) finalizeNifiDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) error {
-
 	exists, err := dataflow.DataflowExist(flow, config)
 	if err != nil {
 		return err

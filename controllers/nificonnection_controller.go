@@ -23,6 +23,8 @@ import (
 	"reflect"
 
 	"emperror.dev/errors"
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/konpyutaika/nigoapi/pkg/nifi"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	v1 "github.com/konpyutaika/nifikop/api/v1"
 	"github.com/konpyutaika/nifikop/api/v1alpha1"
 	"github.com/konpyutaika/nifikop/pkg/clientwrappers/connection"
@@ -43,12 +44,11 @@ import (
 	"github.com/konpyutaika/nifikop/pkg/util"
 	"github.com/konpyutaika/nifikop/pkg/util/clientconfig"
 	nifiutil "github.com/konpyutaika/nifikop/pkg/util/nifi"
-	"github.com/konpyutaika/nigoapi/pkg/nifi"
 )
 
 var connectionFinalizer string = fmt.Sprintf("nificonnections.%s/finalizer", v1alpha1.GroupVersion.Group)
 
-// NifiConnectionReconciler reconciles a NifiConnection object
+// NifiConnectionReconciler reconciles a NifiConnection object.
 type NifiConnectionReconciler struct {
 	client.Client
 	Log             zap.Logger
@@ -82,6 +82,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return RequeueWithError(r.Log, err.Error(), err)
 	}
 
+	patchInstance := client.MergeFromWithOptions(instance.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	// Get the last configuration viewed by the operator.
 	o, _ := patch.DefaultAnnotator.GetOriginalConfiguration(instance)
 	// Create it if not exist.
@@ -90,7 +91,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return RequeueWithError(r.Log, "could not apply last state to annotation for connection "+instance.Name, err)
 		}
 
-		if err := r.Client.Update(ctx, instance); err != nil {
+		if err := r.Client.Patch(ctx, instance, patchInstance); err != nil {
 			return RequeueWithError(r.Log, "failed to update NifiConnection "+instance.Name, err)
 		}
 		o, _ = patch.DefaultAnnotator.GetOriginalConfiguration(instance)
@@ -109,7 +110,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return RequeueWithError(r.Log, "could not apply last state to annotation for connection "+instance.Name, err)
 		}
 
-		if err := r.Client.Update(ctx, instance); err != nil {
+		if err := r.Client.Patch(ctx, instance, patchInstance); err != nil {
 			return RequeueWithError(r.Log, "failed to update NifiConnection "+instance.Name, err)
 		}
 		cr, _ = patch.DefaultAnnotator.GetOriginalConfiguration(instance)
@@ -119,6 +120,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	original := &v1alpha1.NifiConnection{}
 	originalClusterRef := &v1.ClusterReference{}
 	current := instance.DeepCopy()
+	patchCurrent := client.MergeFromWithOptions(current.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	json.Unmarshal(o, original)
 	json.Unmarshal(cr, originalClusterRef)
 
@@ -179,7 +181,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// This shouldn't trigger anymore, but leaving it here as a safetybelt
 			if k8sutil.IsMarkedForDeletion(instance.ObjectMeta) {
 				r.Log.Info("Cluster is already gone, there is nothing we can do")
-				if err = r.removeFinalizer(ctx, current); err != nil {
+				if err = r.removeFinalizer(ctx, current, patchCurrent); err != nil {
 					return RequeueWithError(r.Log, "failed to remove finalizer", err)
 				}
 				return Reconciled()
@@ -250,7 +252,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		// Update last-applied annotation
-		if err := r.Client.Update(ctx, instance); err != nil {
+		if err := r.Client.Patch(ctx, instance, patchInstance); err != nil {
 			return RequeueWithError(r.Log, "failed to update NifiConnection "+instance.Name, err)
 		}
 
@@ -305,7 +307,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// This shouldn't trigger anymore, but leaving it here as a safetybelt
 		if k8sutil.IsMarkedForDeletion(instance.ObjectMeta) {
 			r.Log.Info("Cluster is already gone, there is nothing we can do")
-			if err = r.removeFinalizer(ctx, instance); err != nil {
+			if err = r.removeFinalizer(ctx, instance, patchInstance); err != nil {
 				return RequeueWithError(r.Log, "failed to remove finalizer", err)
 			}
 			return Reconciled()
@@ -323,7 +325,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				clusterRef.Name, clusterRef.Namespace))
 		// the cluster is gone, so just remove the finalizer
 		if k8sutil.IsMarkedForDeletion(instance.ObjectMeta) {
-			if err = r.removeFinalizer(ctx, instance); err != nil {
+			if err = r.removeFinalizer(ctx, instance, patchInstance); err != nil {
 				return RequeueWithError(r.Log, fmt.Sprintf("failed to remove finalizer from NifiConnection %s", instance.Name), err)
 			}
 			return Reconciled()
@@ -334,7 +336,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Check if marked for deletion and if so run finalizers
 	if k8sutil.IsMarkedForDeletion(instance.ObjectMeta) {
-		return r.checkFinalizers(ctx, instance, clientConfig)
+		return r.checkFinalizers(ctx, instance, clientConfig, patchInstance)
 	}
 
 	// Ensure the cluster is ready to receive actions
@@ -389,7 +391,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return RequeueWithError(r.Log, "could not apply last state to annotation for connection "+instance.Name, err)
 		}
 		// Update last-applied annotation
-		if err := r.Client.Update(ctx, instance); err != nil {
+		if err := r.Client.Patch(ctx, instance, patchInstance); err != nil {
 			return RequeueWithError(r.Log, "failed to update NifiConnection "+instance.Name, err)
 		}
 
@@ -418,7 +420,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Push any changes
-	if instance, err = r.updateAndFetchLatest(ctx, instance); err != nil {
+	if instance, err = r.updateAndFetchLatest(ctx, instance, patchInstance); err != nil {
 		return RequeueWithError(r.Log, "failed to update NifiConnection "+current.Name, err)
 	}
 
@@ -492,7 +494,7 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return RequeueWithError(r.Log, "could not apply last state to annotation for dataflow "+instance.Name, err)
 		}
 		// Update last-applied annotation
-		if err := r.Client.Update(ctx, instance); err != nil {
+		if err := r.Client.Patch(ctx, instance, patchInstance); err != nil {
 			return RequeueWithError(r.Log, "failed to update NifiConnection "+instance.Name, err)
 		}
 
@@ -525,12 +527,12 @@ func (r *NifiConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Ensure NifiConnection label
-	if instance, err = r.ensureClusterLabel(ctx, clusterConnect, instance); err != nil {
+	if instance, err = r.ensureClusterLabel(ctx, clusterConnect, instance, patchInstance); err != nil {
 		return RequeueWithError(r.Log, "failed to ensure NifiConnection label on connection", err)
 	}
 
 	// Push any changes
-	if instance, err = r.updateAndFetchLatest(ctx, instance); err != nil {
+	if instance, err = r.updateAndFetchLatest(ctx, instance, patchInstance); err != nil {
 		return RequeueWithError(r.Log, "failed to update NifiConnection", err)
 	}
 
@@ -559,24 +561,22 @@ func (r *NifiConnectionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// Set the label specifying the cluster used by the NifiConnection
+// Set the label specifying the cluster used by the NifiConnection.
 func (r *NifiConnectionReconciler) ensureClusterLabel(ctx context.Context, cluster clientconfig.ClusterConnect,
-	connection *v1alpha1.NifiConnection) (*v1alpha1.NifiConnection, error) {
-
+	connection *v1alpha1.NifiConnection, patcher client.Patch) (*v1alpha1.NifiConnection, error) {
 	labels := ApplyClusterReferenceLabel(cluster, connection.GetLabels())
 	if !reflect.DeepEqual(labels, connection.GetLabels()) {
 		connection.SetLabels(labels)
-		return r.updateAndFetchLatest(ctx, connection)
+		return r.updateAndFetchLatest(ctx, connection, patcher)
 	}
 	return connection, nil
 }
 
-// Update the NifiConnection resource and return the latest version of it
+// Update the NifiConnection resource and return the latest version of it.
 func (r *NifiConnectionReconciler) updateAndFetchLatest(ctx context.Context,
-	connection *v1alpha1.NifiConnection) (*v1alpha1.NifiConnection, error) {
-
+	connection *v1alpha1.NifiConnection, patcher client.Patch) (*v1alpha1.NifiConnection, error) {
 	typeMeta := connection.TypeMeta
-	err := r.Client.Update(ctx, connection)
+	err := r.Client.Patch(ctx, connection, patcher)
 	if err != nil {
 		return nil, err
 	}
@@ -584,34 +584,34 @@ func (r *NifiConnectionReconciler) updateAndFetchLatest(ctx context.Context,
 	return connection, nil
 }
 
-// Check if the finalizer is present on the NifiConnection resource
+// Check if the finalizer is present on the NifiConnection resource.
 func (r *NifiConnectionReconciler) checkFinalizers(
 	ctx context.Context,
 	connection *v1alpha1.NifiConnection,
-	config *clientconfig.NifiConfig) (reconcile.Result, error) {
+	config *clientconfig.NifiConfig, patcher client.Patch) (reconcile.Result, error) {
 	r.Log.Info(fmt.Sprintf("NiFi connection %s is marked for deletion", connection.Name))
 	var err error
 	if util.StringSliceContains(connection.GetFinalizers(), connectionFinalizer) {
 		if err = r.finalizeNifiConnection(ctx, connection, config); err != nil {
 			return RequeueWithError(r.Log, "failed to finalize connection", err)
 		}
-		if err = r.removeFinalizer(ctx, connection); err != nil {
+		if err = r.removeFinalizer(ctx, connection, patcher); err != nil {
 			return RequeueWithError(r.Log, "failed to remove finalizer from connection", err)
 		}
 	}
 	return Reconciled()
 }
 
-// Remove the finalizer on the NifiConnection resource
-func (r *NifiConnectionReconciler) removeFinalizer(ctx context.Context, connection *v1alpha1.NifiConnection) error {
+// Remove the finalizer on the NifiConnection resource.
+func (r *NifiConnectionReconciler) removeFinalizer(ctx context.Context, connection *v1alpha1.NifiConnection, patcher client.Patch) error {
 	r.Log.Info("Removing finalizer for NifiConnection",
 		zap.String("connection", connection.Name))
 	connection.SetFinalizers(util.StringSliceRemove(connection.GetFinalizers(), connectionFinalizer))
-	_, err := r.updateAndFetchLatest(ctx, connection)
+	_, err := r.updateAndFetchLatest(ctx, connection, patcher)
 	return err
 }
 
-// Delete the connection to finalize the NifiConnection
+// Delete the connection to finalize the NifiConnection.
 func (r *NifiConnectionReconciler) finalizeNifiConnection(
 	ctx context.Context,
 	instance *v1alpha1.NifiConnection,
@@ -650,7 +650,7 @@ func (r *NifiConnectionReconciler) finalizeNifiConnection(
 	return nil
 }
 
-// Delete the connection
+// Delete the connection.
 func (r *NifiConnectionReconciler) DeleteConnection(ctx context.Context, clientConfig *clientconfig.NifiConfig,
 	original *v1alpha1.NifiConnection, instance *v1alpha1.NifiConnection) error {
 	r.Log.Debug("Delete the connection",
@@ -761,7 +761,7 @@ func (r *NifiConnectionReconciler) DeleteConnection(ctx context.Context, clientC
 	return errorfactory.NifiConnectionDeleting{}
 }
 
-// Retrieve the clusterRef based on the source and the destination of the connection
+// Retrieve the clusterRef based on the source and the destination of the connection.
 func (r *NifiConnectionReconciler) RetrieveNifiClusterRef(src v1alpha1.ComponentReference, dst v1alpha1.ComponentReference) (*v1.ClusterReference, error) {
 	r.Log.Debug("Retrieve the cluster reference from the source and the destination",
 		zap.String("sourceName", src.Name),
@@ -803,7 +803,7 @@ func (r *NifiConnectionReconciler) RetrieveNifiClusterRef(src v1alpha1.Component
 	return &srcClusterRef, nil
 }
 
-// Retrieve port information from a NifiDataflow
+// Retrieve port information from a NifiDataflow.
 func (r *NifiConnectionReconciler) GetDataflowComponentInformation(c v1alpha1.ComponentReference, isSource bool) (*v1alpha1.ComponentInformation, error) {
 	var portType string = "input"
 	if isSource {
@@ -882,7 +882,7 @@ func (r *NifiConnectionReconciler) GetDataflowComponentInformation(c v1alpha1.Co
 			return nil, errors.New(fmt.Sprintf("Port %s not found: %s in %s", c.SubName, instance.Name, instance.Namespace))
 		}
 
-		// Return all the information on the targetted port of the dataflow
+		// Return all the information on the targeted port of the dataflow
 		information := &v1alpha1.ComponentInformation{
 			Id:            targetPort.Id,
 			Type:          targetPort.Component.Type_,
@@ -894,7 +894,7 @@ func (r *NifiConnectionReconciler) GetDataflowComponentInformation(c v1alpha1.Co
 	}
 }
 
-// Set the maintenance label to force the stop of a port
+// Set the maintenance label to force the stop of a port.
 func (r *NifiConnectionReconciler) StopDataflowComponent(ctx context.Context, c v1alpha1.ComponentReference, isSource bool) error {
 	var portType string = "input"
 	if isSource {
@@ -923,7 +923,7 @@ func (r *NifiConnectionReconciler) StopDataflowComponent(ctx context.Context, c 
 			} else {
 				labels[nifiutil.StopInputPortLabel] = c.SubName
 				instance.SetLabels(labels)
-				return r.Client.Patch(ctx, instance, client.MergeFrom(instanceOriginal))
+				return r.Client.Patch(ctx, instance, client.MergeFromWithOptions(instanceOriginal, client.MergeFromWithOptimisticLock{}))
 			}
 		} else {
 			// Set the label
@@ -934,14 +934,14 @@ func (r *NifiConnectionReconciler) StopDataflowComponent(ctx context.Context, c 
 			} else {
 				labels[nifiutil.StopOutputPortLabel] = c.SubName
 				instance.SetLabels(labels)
-				return r.Client.Patch(ctx, instance, client.MergeFrom(instanceOriginal))
+				return r.Client.Patch(ctx, instance, client.MergeFromWithOptions(instanceOriginal, client.MergeFromWithOptimisticLock{}))
 			}
 		}
 	}
 	return nil
 }
 
-// Unset the maintenance label to force the stop of a port
+// Unset the maintenance label to force the stop of a port.
 func (r *NifiConnectionReconciler) UnStopDataflowComponent(ctx context.Context, c v1alpha1.ComponentReference, isSource bool) error {
 	r.Log.Debug("Unset label to stop the port of the dataflow",
 		zap.String("dataflowName", c.Name),
@@ -973,11 +973,11 @@ func (r *NifiConnectionReconciler) UnStopDataflowComponent(ctx context.Context, 
 		}
 
 		instance.SetLabels(labels)
-		return r.Client.Patch(ctx, instance, client.MergeFrom(instanceOriginal))
+		return r.Client.Patch(ctx, instance, client.MergeFromWithOptions(instanceOriginal, client.MergeFromWithOptimisticLock{}))
 	}
 }
 
-// Set the maintenance label to force the start of a dataflow
+// Set the maintenance label to force the start of a dataflow.
 func (r *NifiConnectionReconciler) ForceStartDataflowComponent(ctx context.Context, c v1alpha1.ComponentReference) error {
 	r.Log.Debug("Set label to force the start of the dataflow",
 		zap.String("dataflowName", c.Name),
@@ -999,13 +999,13 @@ func (r *NifiConnectionReconciler) ForceStartDataflowComponent(ctx context.Conte
 			// Set the label
 			labels[nifiutil.ForceStartLabel] = "true"
 			instance.SetLabels(labels)
-			return r.Client.Patch(ctx, instance, client.MergeFrom(instanceOriginal))
+			return r.Client.Patch(ctx, instance, client.MergeFromWithOptions(instanceOriginal, client.MergeFromWithOptimisticLock{}))
 		}
 	}
 	return nil
 }
 
-// Unset the maintenance label to force the start of a dataflow
+// Unset the maintenance label to force the start of a dataflow.
 func (r *NifiConnectionReconciler) UnForceStartDataflowComponent(ctx context.Context, c v1alpha1.ComponentReference) error {
 	r.Log.Debug("Unset label to force the start of the dataflow",
 		zap.String("dataflowName", c.Name),
@@ -1023,7 +1023,7 @@ func (r *NifiConnectionReconciler) UnForceStartDataflowComponent(ctx context.Con
 		delete(labels, nifiutil.ForceStartLabel)
 
 		instance.SetLabels(labels)
-		return r.Client.Patch(ctx, instance, client.MergeFrom(instanceOriginal))
+		return r.Client.Patch(ctx, instance, client.MergeFromWithOptions(instanceOriginal, client.MergeFromWithOptimisticLock{}))
 	}
 }
 

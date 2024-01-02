@@ -4,11 +4,50 @@
 
 ### Changed
 
+- [PR #340](https://github.com/konpyutaika/nifikop/pull/340) - **[Operator/NifiDataflow]** Updated the logic to stop the entire dataflow instead of just the processors when the parameter context reference is updated.
+
 ### Fixed Bugs
 
 ### Deprecated
 
 ### Removed
+
+## v1.6.0
+
+### Added
+
+- [PR #325](https://github.com/konpyutaika/nifikop/pull/325) - **[Operator/NifiCluster]** Added ability to configure `ReclaimPolicy` for `StorageConfig` persistent volumes.
+- [PR #335](https://github.com/konpyutaika/nifikop/pull/335) - **[Operator/NifiCluster]** Added ability to set port protocol and load balancer class for external services via `ExternalServiceConfig`.
+- [PR #333](https://github.com/konpyutaika/nifikop/pull/333) - **[Operator]** Replace Update by Patch on K8S resource to avoid update race conditions.
+
+### Changed
+
+- [PR #327](https://github.com/konpyutaika/nifikop/pull/327) - **[Documentation]** Update Nifikop vs Apache NiFi compatibility matrix documentation.
+- [PR #330](https://github.com/konpyutaika/nifikop/pull/330) - **[Operator]** Upgrade golang to 1.21.5.
+- [PR #337](https://github.com/konpyutaika/nifikop/pull/337) - **[NiGoApi]** Upgrade NiGoApi to v0.0.10.
+
+### Fixed Bugs
+
+- [PR #336](https://github.com/konpyutaika/nifikop/pull/336) - **[Operator/NifiCluster]** Fixed issue where nifikop wouldn't update `storageConfigs.metadata.annotations` if they were changed after initial creation.
+
+## v1.5.0
+
+### Added
+
+- [PR #320](https://github.com/konpyutaika/nifikop/pull/320) - **[Operator/NifiCluster]** Added ability to set NiFi container port protocol via `InternalListenersConfig`.
+- [PR #323](https://github.com/konpyutaika/nifikop/pull/323) - **[Operator/NifiCluster]** Added abitility to set `nodePort`.
+
+### Changed
+
+- [PR #307](https://github.com/konpyutaika/nifikop/pull/307) - **[Operator]** Upgrade golang to 1.21.2.
+- [PR #314](https://github.com/konpyutaika/nifikop/pull/314) - **[Operator]** Upgrade golang to 1.21.3.
+- [PR #314](https://github.com/konpyutaika/nifikop/pull/314) - **[Documentation]** Upgrade node 20.9.0, Docusaurus 3, React 18 and other dependencies.
+- [PR #321](https://github.com/konpyutaika/nifikop/pull/321) - **[Operator]** Upgrade golang to 1.21.4.
+
+### Fixed Bugs
+
+- [PR #311](https://github.com/konpyutaika/nifikop/pull/311) - **[Operator/NifiConnection]** Doesn't have its own requeue interval.
+- [PR #322](https://github.com/konpyutaika/nifikop/pull/322) - **[Helm Chart]** SingleUserConfiguration block in Helm chart refers to incorrect values and has incorrect indentation.
 
 ## v1.4.1
 

@@ -4,13 +4,13 @@ import (
 	"reflect"
 	"testing"
 
-	"golang.org/x/exp/maps"
-
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	v1 "github.com/konpyutaika/nifikop/api/v1"
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "github.com/konpyutaika/nifikop/api/v1"
 )
 
 func TestConvertNifiCluster(t *testing.T) {
@@ -188,7 +188,7 @@ func externalServicesEqual(es1 []ExternalServiceConfig, es2 []v1.ExternalService
 		}
 		for j, pc := range es.Spec.PortConfigs {
 			if pc.InternalListenerName != es2[i].Spec.PortConfigs[j].InternalListenerName ||
-				pc.Port != es2[i].Spec.PortConfigs[j].Port {
+				pc.Port != es2[i].Spec.PortConfigs[j].Port || es2[i].Spec.PortConfigs[j].Protocol != corev1.ProtocolTCP {
 				return false
 			}
 		}
@@ -204,7 +204,9 @@ func internalListenersConfigsEqual(lc1 []InternalListenerConfig, lc2 []v1.Intern
 	for i, lc := range lc1 {
 		if lc.ContainerPort != lc2[i].ContainerPort ||
 			lc.Name != lc2[i].Name ||
-			lc.Type != lc2[i].Type {
+			lc.Type != lc2[i].Type ||
+			// this protocol assertion verifies the default gets set properly
+			lc2[i].Protocol != corev1.ProtocolTCP {
 			return false
 		}
 	}
@@ -299,6 +301,7 @@ func storageConfigsEqual(sc1 []StorageConfig, sc2 []v1.StorageConfig) bool {
 	for i, sc := range sc1 {
 		if sc.MountPath != sc2[i].MountPath ||
 			sc.Name != sc2[i].Name ||
+			corev1.PersistentVolumeReclaimDelete != sc2[i].ReclaimPolicy ||
 			!reflect.DeepEqual(sc.PVCSpec, sc2[i].PVCSpec) {
 			return false
 		}

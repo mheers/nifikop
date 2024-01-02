@@ -2,26 +2,26 @@ package nifi
 
 import (
 	"fmt"
-	"github.com/konpyutaika/nifikop/api/v1"
 	"strings"
 
 	"github.com/imdario/mergo"
-	"github.com/konpyutaika/nifikop/pkg/resources/templates"
-	"github.com/konpyutaika/nifikop/pkg/util"
-	nifiutil "github.com/konpyutaika/nifikop/pkg/util/nifi"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	v1 "github.com/konpyutaika/nifikop/api/v1"
+	"github.com/konpyutaika/nifikop/pkg/resources/templates"
+	"github.com/konpyutaika/nifikop/pkg/util"
+	nifiutil "github.com/konpyutaika/nifikop/pkg/util/nifi"
 )
 
 func (r *Reconciler) service(id int32, log zap.Logger) runtimeClient.Object {
-
 	usedPorts := generateServicePortForInternalListeners(r.NifiCluster.Spec.ListenersConfig.InternalListeners)
 
 	return &corev1.Service{
 		ObjectMeta: templates.ObjectMetaWithAnnotations(nifiutil.ComputeNodeName(id, r.NifiCluster.Name),
-			//fmt.Sprintf("%s-%d", r.NifiCluster.Name, id),
+			// fmt.Sprintf("%s-%d", r.NifiCluster.Name, id),
 			util.MergeLabels(
 				r.NifiCluster.Spec.Service.Labels,
 				nifiutil.LabelsForNifi(r.NifiCluster.Name),
@@ -39,10 +39,8 @@ func (r *Reconciler) service(id int32, log zap.Logger) runtimeClient.Object {
 }
 
 func (r *Reconciler) externalServices(log zap.Logger) []runtimeClient.Object {
-
 	var services []runtimeClient.Object
 	for _, eService := range r.NifiCluster.Spec.ExternalServices {
-
 		annotations := &eService.Metadata.Annotations
 		if err := mergo.Merge(annotations, r.NifiCluster.Spec.Service.Annotations); err != nil {
 			log.Error("error occurred during merging service annotations",
@@ -71,6 +69,7 @@ func (r *Reconciler) externalServices(log zap.Logger) []runtimeClient.Object {
 				LoadBalancerIP:           eService.Spec.LoadBalancerIP,
 				LoadBalancerSourceRanges: eService.Spec.LoadBalancerSourceRanges,
 				ExternalName:             eService.Spec.ExternalName,
+				LoadBalancerClass:        eService.Spec.LoadBalancerClass,
 			},
 		})
 	}
@@ -85,7 +84,7 @@ func generateServicePortForInternalListeners(listeners []v1.InternalListenerConf
 			Name:       strings.ReplaceAll(iListeners.Name, "_", ""),
 			Port:       iListeners.ContainerPort,
 			TargetPort: intstr.FromInt(int(iListeners.ContainerPort)),
-			Protocol:   corev1.ProtocolTCP,
+			Protocol:   iListeners.Protocol,
 		})
 	}
 
@@ -98,12 +97,17 @@ func (r *Reconciler) generateServicePortForExternalListeners(eService v1.Externa
 	for _, port := range eService.Spec.PortConfigs {
 		for _, iListener := range r.NifiCluster.Spec.ListenersConfig.InternalListeners {
 			if port.InternalListenerName == iListener.Name {
-				usedPorts = append(usedPorts, corev1.ServicePort{
+				newPort := corev1.ServicePort{
 					Name:       strings.ReplaceAll(iListener.Name, "_", ""),
 					Port:       port.Port,
 					TargetPort: intstr.FromInt(int(iListener.ContainerPort)),
-					Protocol:   corev1.ProtocolTCP,
-				})
+					Protocol:   port.Protocol,
+				}
+
+				if eService.Spec.Type == corev1.ServiceTypeNodePort && port.NodePort != nil {
+					newPort.NodePort = *port.NodePort
+				}
+				usedPorts = append(usedPorts, newPort)
 			}
 		}
 	}

@@ -3,21 +3,25 @@ package dataflow
 import (
 	"strings"
 
+	nigoapi "github.com/konpyutaika/nigoapi/pkg/nifi"
+	"go.uber.org/zap"
+
 	v1 "github.com/konpyutaika/nifikop/api/v1"
-
-	"github.com/konpyutaika/nifikop/pkg/util/clientconfig"
-
 	"github.com/konpyutaika/nifikop/pkg/clientwrappers"
 	"github.com/konpyutaika/nifikop/pkg/common"
 	"github.com/konpyutaika/nifikop/pkg/errorfactory"
 	"github.com/konpyutaika/nifikop/pkg/nificlient"
-	nigoapi "github.com/konpyutaika/nigoapi/pkg/nifi"
+	"github.com/konpyutaika/nifikop/pkg/util/clientconfig"
 )
 
 var log = common.CustomLogger().Named("dataflow-method")
 
-// DataflowExist check if the NifiDataflow exist on NiFi Cluster
+// DataflowExist check if the NifiDataflow exist on NiFi Cluster.
 func DataflowExist(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (bool, error) {
+	log.Debug("Checking existence of dataflow",
+		zap.String("clusterName", flow.Spec.ClusterRef.Name),
+		zap.String("flowId", flow.Spec.FlowId),
+		zap.String("dataflow", flow.Name))
 
 	if flow.Status.ProcessGroupID == "" {
 		return false, nil
@@ -77,9 +81,13 @@ func GetDataflowInformation(flow *v1.NifiDataflow, config *clientconfig.NifiConf
 	return flowEntity, nil
 }
 
-// CreateDataflow will deploy the NifiDataflow on NiFi Cluster
+// CreateDataflow will deploy the NifiDataflow on NiFi Cluster.
 func CreateDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig,
 	registry *v1.NifiRegistryClient) (*v1.NifiDataflowStatus, error) {
+	log.Debug("Creating dataflow",
+		zap.String("clusterName", flow.Spec.ClusterRef.Name),
+		zap.String("flowId", flow.Spec.FlowId),
+		zap.String("dataflow", flow.Name))
 
 	nClient, err := common.NewClusterConnection(log, config)
 	if err != nil {
@@ -137,6 +145,11 @@ func IsDataflowUnscheduled(flow *v1.NifiDataflow, config *clientconfig.NifiConfi
 
 // ScheduleDataflow will schedule the controller services and components of the NifiDataflow.
 func ScheduleDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) error {
+	log.Debug("Scheduling dataflow",
+		zap.String("clusterName", flow.Spec.ClusterRef.Name),
+		zap.String("flowId", flow.Spec.FlowId),
+		zap.String("dataflow", flow.Name))
+
 	nClient, err := common.NewClusterConnection(log, config)
 	if err != nil {
 		return err
@@ -189,13 +202,12 @@ func ScheduleDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) er
 	return nil
 }
 
-// IsOutOfSyncDataflow control if the deployed dataflow is out of sync with the NifiDataflow resource
+// IsOutOfSyncDataflow control if the deployed dataflow is out of sync with the NifiDataflow resource.
 func IsOutOfSyncDataflow(
 	flow *v1.NifiDataflow,
 	config *clientconfig.NifiConfig,
 	registry *v1.NifiRegistryClient,
 	parameterContext *v1.NifiParameterContext) (bool, error) {
-
 	nClient, err := common.NewClusterConnection(log, config)
 	if err != nil {
 		return false, err
@@ -220,7 +232,6 @@ func IsOutOfSyncDataflow(
 func isParameterContextChanged(
 	parameterContext *v1.NifiParameterContext,
 	processGroups []nigoapi.ProcessGroupEntity) bool {
-
 	for _, processGroup := range processGroups {
 		pgParameterContext := processGroup.ParameterContext
 
@@ -262,7 +273,6 @@ func isVersioningChanged(
 	flow *v1.NifiDataflow,
 	registry *v1.NifiRegistryClient,
 	pgFlowEntity *nigoapi.ProcessGroupEntity) bool {
-
 	return pgFlowEntity.Component.VersionControlInformation == nil ||
 		flow.Spec.FlowId != pgFlowEntity.Component.VersionControlInformation.FlowId ||
 		flow.Spec.BucketId != pgFlowEntity.Component.VersionControlInformation.BucketId ||
@@ -282,7 +292,6 @@ func SyncDataflow(
 	config *clientconfig.NifiConfig,
 	registry *v1.NifiRegistryClient,
 	parameterContext *v1.NifiParameterContext) (*v1.NifiDataflowStatus, error) {
-
 	nClient, err := common.NewClusterConnection(log, config)
 	if err != nil {
 		return nil, err
@@ -300,12 +309,8 @@ func SyncDataflow(
 
 	processGroups = append(processGroups, *pGEntity)
 	if isParameterContextChanged(parameterContext, processGroups) {
-		// unschedule processors
-		_, err := nClient.UpdateFlowProcessGroup(nigoapi.ScheduleComponentsEntity{
-			Id:    flow.Status.ProcessGroupID,
-			State: "STOPPED",
-		})
-		if err := clientwrappers.ErrorUpdateOperation(log, err, "Stop flow"); err != nil {
+		// unschedule dataflow
+		if err := UnscheduleDataflow(flow, config); err != nil {
 			return nil, err
 		}
 
@@ -359,7 +364,6 @@ func SyncDataflow(
 	}
 
 	if isParentProcessGroupChanged(flow, config, pGEntity) {
-
 		snippet, err := nClient.CreateSnippet(nigoapi.SnippetEntity{
 			Snippet: &nigoapi.SnippetDto{
 				ParentGroupId: pGEntity.Component.ParentGroupId,
@@ -487,9 +491,8 @@ func SyncDataflow(
 	return &flow.Status, nil
 }
 
-// prepareUpdatePG ensure drain or drop logic
+// prepareUpdatePG ensure drain or drop logic.
 func prepareUpdatePG(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (*v1.NifiDataflowStatus, error) {
-
 	nClient, err := common.NewClusterConnection(log, config)
 	if err != nil {
 		return nil, err
@@ -507,7 +510,6 @@ func prepareUpdatePG(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (*v
 
 		//
 		if flow.Status.LatestDropRequest != nil && !flow.Status.LatestDropRequest.Finished && !flow.Status.LatestDropRequest.NotFound {
-
 			dropRequest, err :=
 				nClient.GetDropRequest(flow.Status.LatestDropRequest.ConnectionId, flow.Status.LatestDropRequest.Id)
 			if err := clientwrappers.ErrorGetOperation(log, err, "Get drop-request"); err != nificlient.ErrNifiClusterReturned404 {
@@ -550,7 +552,6 @@ func prepareUpdatePG(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (*v
 			}
 		}
 	} else {
-
 		// Check all components are ok
 		flowEntity, err := nClient.GetFlow(flow.Spec.GetParentProcessGroupID(config.RootProcessGroupId))
 		if err := clientwrappers.ErrorGetOperation(log, err, "Get flow"); err != nil {
@@ -607,6 +608,10 @@ func prepareUpdatePG(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (*v
 }
 
 func RemoveDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (*v1.NifiDataflowStatus, error) {
+	log.Debug("Removing dataflow",
+		zap.String("clusterName", flow.Spec.ClusterRef.Name),
+		zap.String("flowId", flow.Spec.FlowId),
+		zap.String("dataflow", flow.Name))
 
 	// Prepare Dataflow
 	status, err := prepareUpdatePG(flow, config)
@@ -641,6 +646,11 @@ func RemoveDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (*v1
 }
 
 func UnscheduleDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) error {
+	log.Debug("Unscheduling dataflow",
+		zap.String("clusterName", flow.Spec.ClusterRef.Name),
+		zap.String("flowId", flow.Spec.FlowId),
+		zap.String("dataflow", flow.Name))
+
 	nClient, err := common.NewClusterConnection(log, config)
 	if err != nil {
 		return err
@@ -694,11 +704,10 @@ func UnscheduleDataflow(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) 
 	return nil
 }
 
-// processGroupFromFlow convert a ProcessGroupFlowEntity to NifiDataflow
+// processGroupFromFlow convert a ProcessGroupFlowEntity to NifiDataflow.
 func processGroupFromFlow(
 	flowEntity *nigoapi.ProcessGroupFlowEntity,
 	flow *v1.NifiDataflow) *nigoapi.ProcessGroupEntity {
-
 	for _, entity := range flowEntity.ProcessGroupFlow.Flow.ProcessGroups {
 		if entity.Id == flow.Status.ProcessGroupID {
 			return &entity
@@ -755,10 +764,9 @@ func processGroupFromFlow(
 // 	return &hasConnectionActive, nil
 // }
 
-// listComponents will get all ProcessGroups, Processors, Connections and Ports recursively
+// listComponents will get all ProcessGroups, Processors, Connections and Ports recursively.
 func listComponents(config *clientconfig.NifiConfig,
 	processGroupID string) ([]nigoapi.ProcessGroupEntity, []nigoapi.ProcessorEntity, []nigoapi.ConnectionEntity, []nigoapi.PortEntity, error) {
-
 	var processGroups []nigoapi.ProcessGroupEntity
 	var processors []nigoapi.ProcessorEntity
 	var connections []nigoapi.ConnectionEntity
@@ -841,7 +849,6 @@ func updateProcessGroupEntity(
 	registry *v1.NifiRegistryClient,
 	config *clientconfig.NifiConfig,
 	entity *nigoapi.ProcessGroupEntity) {
-
 	stringFactory := func() string { return "" }
 
 	var defaultVersion int64 = 0
@@ -912,7 +919,7 @@ func removeProcessor(processors []nigoapi.ProcessorEntity, toRemoveId string) []
 	return tmp
 }
 
-// Check if a dataflow contains flowfile
+// Check if a dataflow contains flowfile.
 func IsDataflowEmpty(flow *v1.NifiDataflow, config *clientconfig.NifiConfig) (bool, error) {
 	nClient, err := common.NewClusterConnection(log, config)
 	if err != nil {

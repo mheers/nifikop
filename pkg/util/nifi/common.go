@@ -19,7 +19,8 @@ const (
 )
 
 var (
-	NifiDataVolumeMountKey = fmt.Sprintf("%s/nifi-data", v1.GroupVersion.Group)
+	NifiDataVolumeMountKey     = fmt.Sprintf("%s/nifi-data", v1.GroupVersion.Group)
+	NifiVolumeReclaimPolicyKey = fmt.Sprintf("%s/nifi-volume-reclaim-policy", v1.GroupVersion.Group)
 )
 
 var (
@@ -33,9 +34,8 @@ var (
 	LastAppliedClusterAnnotation = fmt.Sprintf("%s/last-applied-nificluster", v1.GroupVersion.Group)
 )
 
-// ParseTimeStampToUnixTime parses the given CC timeStamp to time format
+// ParseTimeStampToUnixTime parses the given CC timeStamp to time format.
 func ParseTimeStampToUnixTime(timestamp string) (time.Time, error) {
-
 	t, err := time.Parse(TimeStampLayout, timestamp)
 	if err != nil {
 		return time.Time{}, err
@@ -51,7 +51,7 @@ func ParseStringToInt32(nodeId string) (int32, error) {
 }
 
 // > RequestNiFI
-// >> Node
+// >> Node.
 func ComputeNodeName(nodeId int32, clusterName string) string {
 	return fmt.Sprintf(NodeNameTemplate, clusterName, nodeId)
 }
@@ -81,7 +81,6 @@ func ComputeRequestNiFiNodeNamespaceFull(
 	clusterName, namespace string,
 	headlessServiceEnabled, useExternalDNS bool,
 	serviceTemplate string) string {
-
 	if useExternalDNS {
 		return ComputeRequestNiFiNodeNamespace(nodeId, clusterName, namespace, headlessServiceEnabled,
 			useExternalDNS, serviceTemplate)
@@ -98,7 +97,6 @@ func ComputeRequestNiFiNodeHostname(
 	clusterDomain string,
 	useExternalDNS bool,
 	serviceTemplate string) string {
-
 	return fmt.Sprintf("%s.%s",
 		ComputeRequestNiFiNodeNamespaceFull(nodeId, clusterName, namespace,
 			headlessServiceEnabled, useExternalDNS, serviceTemplate),
@@ -113,7 +111,6 @@ func ComputeRequestNiFiNodeAddress(
 	useExternalDNS bool,
 	internalListeners []v1.InternalListenerConfig,
 	serviceTemplate string) string {
-
 	return fmt.Sprintf("%s:%d",
 		ComputeRequestNiFiNodeHostname(nodeId, clusterName, namespace,
 			headlessServiceEnabled, clusterDomain, useExternalDNS, serviceTemplate),
@@ -145,7 +142,7 @@ func GenerateRequestNiFiNodeHostnameFromCluster(nodeId int32, cluster *v1.NifiCl
 	)
 }
 
-// >> All node
+// >> All node.
 func ComputeRequestNiFiAllNodeService(
 	clusterName string, serviceTemplate string) string {
 	return fmt.Sprintf(serviceTemplate, clusterName)
@@ -162,7 +159,6 @@ func ComputeRequestNiFiAllNodeNamespace(
 
 func ComputeRequestNiFiAllNodeNamespaceFull(
 	clusterName, namespace string, useExternalDNS bool, serviceTemplate string) string {
-
 	if useExternalDNS {
 		return ComputeRequestNiFiAllNodeNamespace(clusterName, namespace, useExternalDNS, serviceTemplate)
 	}
@@ -175,7 +171,6 @@ func ComputeRequestNiFiAllNodeHostname(
 	clusterDomain string,
 	useExternalDNS bool,
 	serviceTemplate string) string {
-
 	return fmt.Sprintf("%s.%s",
 		ComputeRequestNiFiAllNodeNamespaceFull(clusterName, namespace, useExternalDNS, serviceTemplate),
 		clusterDomain)
@@ -187,7 +182,6 @@ func ComputeRequestNiFiAllNodeAddress(
 	useExternalDNS bool,
 	internalListeners []v1.InternalListenerConfig,
 	serviceTemplate string) string {
-
 	return fmt.Sprintf("%s:%d",
 		ComputeRequestNiFiAllNodeHostname(clusterName, namespace, clusterDomain, useExternalDNS, serviceTemplate),
 		InternalListenerForComm(internalListeners).ContainerPort)
@@ -222,7 +216,6 @@ func ComputeHostListenerNodeHostname(
 	clusterDomain string,
 	useExternalDNS bool,
 	serviceTemplate string) string {
-
 	return fmt.Sprintf("%s.%s", ComputeNodeName(nodeId, clusterName),
 		ComputeRequestNiFiAllNodeHostname(clusterName, namespace, clusterDomain, useExternalDNS, serviceTemplate))
 }
@@ -234,7 +227,6 @@ func ComputeHostListenerNodeAddress(
 	useExternalDNS bool,
 	internalListeners []v1.InternalListenerConfig,
 	serviceTemplate string) string {
-
 	return fmt.Sprintf("%s:%d",
 		ComputeHostListenerNodeHostname(nodeId, clusterName, namespace, clusterDomain, useExternalDNS, serviceTemplate),
 		InternalListenerForComm(internalListeners).ContainerPort)

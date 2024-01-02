@@ -5,18 +5,17 @@ import (
 	"sort"
 	"strings"
 
-	v1 "github.com/konpyutaika/nifikop/api/v1"
-
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	v1 "github.com/konpyutaika/nifikop/api/v1"
 	"github.com/konpyutaika/nifikop/pkg/resources/templates"
 	"github.com/konpyutaika/nifikop/pkg/util"
 	nifiutil "github.com/konpyutaika/nifikop/pkg/util/nifi"
 	pkicommon "github.com/konpyutaika/nifikop/pkg/util/pki"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -30,7 +29,7 @@ const (
 	readinessHealthCheckPeriod    int32 = 20
 	readinessHealthCheckThreshold int32 = 5
 
-	// InitContainer resources
+	// InitContainer resources.
 	defaultInitContainerLimitsCPU      = "0.5"
 	defaultInitContainerLimitsMemory   = "0.5Gi"
 	defaultInitContainerRequestsCPU    = "0.5"
@@ -210,7 +209,7 @@ done
 		},
 	}
 
-	//if r.NifiCluster.Spec.Service.HeadlessEnabled {
+	// if r.NifiCluster.Spec.Service.HeadlessEnabled {
 	pod.Spec.Hostname = nifiutil.ComputeNodeName(node.Id, r.NifiCluster.Name)
 	pod.Spec.Subdomain = nifiutil.ComputeRequestNiFiAllNodeService(r.NifiCluster.Name,
 		r.NifiCluster.Spec.Service.GetServiceTemplate())
@@ -223,7 +222,6 @@ done
 }
 
 func generateDataVolumeAndVolumeMount(pvcs []corev1.PersistentVolumeClaim) (volume []corev1.Volume, volumeMount []corev1.VolumeMount) {
-
 	for _, pvc := range pvcs {
 		volume = append(volume, corev1.Volume{
 			//Name: fmt.Sprintf(nifiDataVolumeMount+"-%d", i),
@@ -278,11 +276,14 @@ func generatePodAntiAffinity(clusterName string, hardRuleEnabled bool) *corev1.P
 
 func (r *Reconciler) generateContainerPortForInternalListeners() []corev1.ContainerPort {
 	var usedPorts []corev1.ContainerPort
-
 	for _, iListeners := range r.NifiCluster.Spec.ListenersConfig.InternalListeners {
+		protocol := iListeners.Protocol
+		if protocol == "" {
+			protocol = corev1.ProtocolTCP
+		}
 		usedPorts = append(usedPorts, corev1.ContainerPort{
 			Name:          strings.ReplaceAll(iListeners.Name, "_", ""),
-			Protocol:      corev1.ProtocolTCP,
+			Protocol:      protocol,
 			ContainerPort: iListeners.ContainerPort,
 		})
 	}
@@ -305,7 +306,6 @@ func (r *Reconciler) generateContainerPortForExternalListeners() []corev1.Contai
 }
 
 func (r *Reconciler) generateDefaultContainerPort() []corev1.ContainerPort {
-
 	usedPorts := []corev1.ContainerPort{
 		// Prometheus metrics port for monitoring
 		/*{
@@ -318,7 +318,7 @@ func (r *Reconciler) generateDefaultContainerPort() []corev1.ContainerPort {
 	return usedPorts
 }
 
-// TODO : manage default port
+// TODO : manage default port.
 func GetServerPort(l *v1.ListenersConfig) int32 {
 	var httpsServerPort int32
 	var httpServerPort int32
@@ -372,7 +372,6 @@ func generateVolumeMountForSSL() []corev1.VolumeMount {
 }
 
 func generateInitContainerResources() corev1.ResourceRequirements {
-
 	resourcesLimits := corev1.ResourceList{}
 	resourcesLimits[corev1.ResourceCPU], _ = resource.ParseQuantity(defaultInitContainerLimitsCPU)
 	resourcesLimits[corev1.ResourceMemory], _ = resource.ParseQuantity(defaultInitContainerLimitsMemory)
@@ -569,7 +568,7 @@ do
 		notMatchedIp=false
 	fi
 done
-echo "Hostname is successfully binded withy IP adress"`, nodeAddress, nodeAddress)
+echo "Hostname is successfully binded withy IP address"`, nodeAddress, nodeAddress)
 	}
 	command := []string{"bash", "-ce", fmt.Sprintf(`cp ${NIFI_HOME}/tmp/* ${NIFI_HOME}/conf/
 %s

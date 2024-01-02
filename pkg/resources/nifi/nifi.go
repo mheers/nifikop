@@ -7,33 +7,31 @@ import (
 	"strings"
 	"time"
 
-	v1 "github.com/konpyutaika/nifikop/api/v1"
-
-	"github.com/konpyutaika/nifikop/pkg/clientwrappers/dataflow"
-	"github.com/konpyutaika/nifikop/pkg/clientwrappers/scale"
-	"github.com/konpyutaika/nifikop/pkg/nificlient/config"
-	"github.com/konpyutaika/nifikop/pkg/pki"
-	nifiutil "github.com/konpyutaika/nifikop/pkg/util/nifi"
-	"go.uber.org/zap"
-
 	"emperror.dev/errors"
-	"github.com/konpyutaika/nifikop/pkg/clientwrappers/controllersettings"
-	"github.com/konpyutaika/nifikop/pkg/clientwrappers/reportingtask"
-
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/konpyutaika/nifikop/pkg/errorfactory"
-	"github.com/konpyutaika/nifikop/pkg/k8sutil"
-	"github.com/konpyutaika/nifikop/pkg/resources"
-	"github.com/konpyutaika/nifikop/pkg/resources/templates"
-	"github.com/konpyutaika/nifikop/pkg/util"
-	certutil "github.com/konpyutaika/nifikop/pkg/util/cert"
-	pkicommon "github.com/konpyutaika/nifikop/pkg/util/pki"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	v1 "github.com/konpyutaika/nifikop/api/v1"
+	"github.com/konpyutaika/nifikop/pkg/clientwrappers/controllersettings"
+	"github.com/konpyutaika/nifikop/pkg/clientwrappers/dataflow"
+	"github.com/konpyutaika/nifikop/pkg/clientwrappers/reportingtask"
+	"github.com/konpyutaika/nifikop/pkg/clientwrappers/scale"
+	"github.com/konpyutaika/nifikop/pkg/errorfactory"
+	"github.com/konpyutaika/nifikop/pkg/k8sutil"
+	"github.com/konpyutaika/nifikop/pkg/nificlient/config"
+	"github.com/konpyutaika/nifikop/pkg/pki"
+	"github.com/konpyutaika/nifikop/pkg/resources"
+	"github.com/konpyutaika/nifikop/pkg/resources/templates"
+	"github.com/konpyutaika/nifikop/pkg/util"
+	certutil "github.com/konpyutaika/nifikop/pkg/util/cert"
+	nifiutil "github.com/konpyutaika/nifikop/pkg/util/nifi"
+	pkicommon "github.com/konpyutaika/nifikop/pkg/util/pki"
 )
 
 const (
@@ -48,13 +46,13 @@ const (
 	clientKeystorePath   = "/var/run/secrets/java.io/keystores/client"
 )
 
-// Reconciler implements the Component Reconciler
+// Reconciler implements the Component Reconciler.
 type Reconciler struct {
 	resources.Reconciler
 	Scheme *runtime.Scheme
 }
 
-// New creates a new reconciler for Nifi
+// New creates a new reconciler for Nifi.
 func New(client client.Client, directClient client.Reader, scheme *runtime.Scheme, cluster *v1.NifiCluster, currentStatus v1.NifiClusterStatus) *Reconciler {
 	return &Reconciler{
 		Scheme: scheme,
@@ -77,13 +75,10 @@ func getCreatedPVCForNode(c client.Client, nodeID int32, namespace, crName strin
 	if err != nil {
 		return nil, err
 	}
-	if len(foundPVCList.Items) == 0 {
-		return nil, fmt.Errorf("no persistentvolume found for node %d", nodeID)
-	}
 	return foundPVCList.Items, nil
 }
 
-// Reconcile implements the reconcile logic for nifi
+// Reconcile implements the reconcile logic for nifi.
 func (r *Reconciler) Reconcile(log zap.Logger) error {
 	log.Debug("reconciling",
 		zap.String("component", componentName),
@@ -147,23 +142,48 @@ func (r *Reconciler) Reconcile(log zap.Logger) error {
 		if err != nil {
 			return errors.WrapIf(err, "failed to reconcile resource")
 		}
+		// look up any existing PVCs for this node
+		pvcs, err := getCreatedPVCForNode(r.Client, node.Id, r.NifiCluster.Namespace, r.NifiCluster.Name)
+		// if pvcs is nil, then an error occurred. otherwise, it's just an empty list.
+		if err != nil && pvcs == nil {
+			return errors.WrapIfWithDetails(err, "failed to list PVCs")
+		}
+
 		for _, storage := range nodeConfig.StorageConfigs {
-			o := r.pvc(node.Id, storage, log)
-			err := r.reconcileNifiPVC(log, o.(*corev1.PersistentVolumeClaim))
-			if err != nil {
-				return errors.WrapIfWithDetails(err, "failed to reconcile resource", "resource", o.GetObjectKind().GroupVersionKind())
+			var pvc *corev1.PersistentVolumeClaim
+			pvcExists, existingPvc := r.storageConfigPVCExists(pvcs, storage.Name)
+			// if the (volume reclaim policy is Retain and the PVC doesn't exist) OR the reclaim policy is Delete, then create it.
+			if (storage.ReclaimPolicy == corev1.PersistentVolumeReclaimRetain && !pvcExists) ||
+				storage.ReclaimPolicy == corev1.PersistentVolumeReclaimDelete {
+				o := r.pvc(node.Id, storage, log)
+				pvc = o.(*corev1.PersistentVolumeClaim)
+			} else {
+				// volume reclaim policy is Retain and the PVC exists
+				log.Info("Volume reclaim policy is Retain. Re-using existing PVC",
+					zap.String("clusterName", r.NifiCluster.Name),
+					zap.Int32("nodeId", node.Id),
+					zap.String("pvcName", existingPvc.Name),
+					zap.String("storageName", storage.Name))
+				// ensure we apply the reclaim policy label to handle PVC deletion properly for pre-existing PVCs
+				existingPvc.Labels[nifiutil.NifiVolumeReclaimPolicyKey] = string(storage.ReclaimPolicy)
+				pvc = existingPvc
 			}
+			err := r.reconcileNifiPVC(node.Id, log, pvc)
+			if err != nil {
+				return errors.WrapIfWithDetails(err, "failed to reconcile resource", "resource", pvc.GetObjectKind().GroupVersionKind())
+			}
+		}
+
+		// re-lookup the PVCs after we've created any we need to create.
+		pvcs, err = getCreatedPVCForNode(r.Client, node.Id, r.NifiCluster.Namespace, r.NifiCluster.Name)
+		if err != nil {
+			return errors.WrapIfWithDetails(err, "failed to list PVCs")
 		}
 
 		o := r.secretConfig(node.Id, nodeConfig, serverPass, clientPass, superUsers, log)
 		err = k8sutil.Reconcile(log, r.Client, o, r.NifiCluster, &r.NifiClusterCurrentStatus)
 		if err != nil {
 			return errors.WrapIfWithDetails(err, "failed to reconcile resource", "resource", o.GetObjectKind().GroupVersionKind())
-		}
-
-		pvcs, err := getCreatedPVCForNode(r.Client, node.Id, r.NifiCluster.Namespace, r.NifiCluster.Name)
-		if err != nil {
-			return errors.WrapIfWithDetails(err, "failed to list PVC's")
 		}
 
 		if !r.NifiCluster.Spec.Service.HeadlessEnabled {
@@ -268,7 +288,6 @@ func (r *Reconciler) Reconcile(log zap.Logger) error {
 }
 
 func (r *Reconciler) reconcileNifiPodDelete(log zap.Logger) error {
-
 	podList := &corev1.PodList{}
 	matchingLabels := client.MatchingLabels(nifiutil.LabelsForNifi(r.NifiCluster.Name))
 
@@ -319,7 +338,6 @@ OUTERLOOP:
 		}
 
 		for _, node := range deletedNodes {
-
 			if node.ObjectMeta.DeletionTimestamp != nil {
 				log.Info("Node is already on terminating state",
 					zap.String("nodeId", node.Labels["nodeId"]))
@@ -329,7 +347,6 @@ OUTERLOOP:
 			if len(r.NifiCluster.Spec.Nodes) > 0 {
 				if nodeState, ok := r.NifiCluster.Status.NodesState[node.Labels["nodeId"]]; ok &&
 					nodeState.GracefulActionState.ActionStep != v1.OffloadStatus && nodeState.GracefulActionState.ActionStep != v1.RemovePodAction {
-
 					if nodeState.GracefulActionState.State == v1.GracefulDownscaleRunning {
 						log.Info("Nifi task is still running for node",
 							zap.String("nodeId", node.Labels["nodeId"]),
@@ -365,7 +382,8 @@ OUTERLOOP:
 					return errors.WrapIfWithDetails(err, "could not get pvc for node", "id", node.Labels["nodeId"])
 				}
 
-				if pvcFound.Labels[nifiutil.NifiDataVolumeMountKey] == "true" {
+				// If this is a nifi data volume AND it has a Delete reclaim policy, then delete it. Otherwise, it is configured to be retained.
+				if pvcFound.Labels[nifiutil.NifiDataVolumeMountKey] == "true" && pvcFound.Labels[nifiutil.NifiVolumeReclaimPolicyKey] == string(corev1.PersistentVolumeReclaimDelete) {
 					err = r.Client.Delete(context.TODO(), &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
 						Name:      volume.PersistentVolumeClaim.ClaimName,
 						Namespace: r.NifiCluster.Namespace,
@@ -378,9 +396,12 @@ OUTERLOOP:
 
 						return errors.WrapIfWithDetails(err, "could not delete pvc for node", "id", node.Labels["nodeId"])
 					}
+				} else {
+					log.Debug("Not deleting PVC because it should be retained.", zap.String("nodeId", node.Labels["nodeId"]), zap.String("pvcName", pvcFound.Name))
 				}
 			}
 
+			log.Debug("Deleting pod.", zap.String("pod", node.Name))
 			err = r.Client.Delete(context.TODO(), &node)
 			if err != nil {
 				return errors.WrapIfWithDetails(err, "could not delete node", "id", node.Labels["nodeId"])
@@ -472,7 +493,7 @@ func generateNodeIdsFromPodSlice(pods []corev1.Pod) []string {
 	return ids
 }
 
-func (r *Reconciler) reconcileNifiPVC(log zap.Logger, desiredPVC *corev1.PersistentVolumeClaim) error {
+func (r *Reconciler) reconcileNifiPVC(nodeId int32, log zap.Logger, desiredPVC *corev1.PersistentVolumeClaim) error {
 	var currentPVC = desiredPVC.DeepCopy()
 	desiredType := reflect.TypeOf(desiredPVC)
 	log.Debug("searching for pvc with label because name is empty",
@@ -480,21 +501,15 @@ func (r *Reconciler) reconcileNifiPVC(log zap.Logger, desiredPVC *corev1.Persist
 		zap.String("nodeId", desiredPVC.Labels["nodeId"]),
 		zap.String("kind", desiredType.String()))
 
-	pvcList := &corev1.PersistentVolumeClaimList{}
-	matchingLabels := client.MatchingLabels{
-		"nifi_cr": r.NifiCluster.Name,
-		"nodeId":  desiredPVC.Labels["nodeId"],
-	}
-	err := r.Client.List(context.TODO(), pvcList,
-		client.InNamespace(currentPVC.Namespace), matchingLabels)
-	if err != nil && len(pvcList.Items) == 0 {
+	pvcList, err := getCreatedPVCForNode(r.Client, nodeId, currentPVC.Namespace, r.NifiCluster.Name)
+	if err != nil && len(pvcList) == 0 {
 		return errorfactory.New(errorfactory.APIFailure{}, err, "getting resource failed", "kind", desiredType)
 	}
 	mountPath := currentPVC.Annotations["mountPath"]
 	storageName := currentPVC.Annotations["storageName"]
 
 	// Creating the first PersistentVolume For Pod
-	if len(pvcList.Items) == 0 {
+	if len(pvcList) == 0 {
 		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desiredPVC); err != nil {
 			return errors.WrapIf(err, "could not apply last state to annotation")
 		}
@@ -508,7 +523,7 @@ func (r *Reconciler) reconcileNifiPVC(log zap.Logger, desiredPVC *corev1.Persist
 		return nil
 	}
 	alreadyCreated := false
-	for _, pvc := range pvcList.Items {
+	for _, pvc := range pvcList {
 		if mountPath == pvc.Annotations["mountPath"] && storageName == pvc.Annotations["storageName"] {
 			currentPVC = pvc.DeepCopy()
 			alreadyCreated = true
@@ -527,7 +542,6 @@ func (r *Reconciler) reconcileNifiPVC(log zap.Logger, desiredPVC *corev1.Persist
 	}
 	if err == nil {
 		if k8sutil.CheckIfObjectUpdated(log, desiredType, currentPVC, desiredPVC) {
-
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desiredPVC); err != nil {
 				return errors.WrapIf(err, "could not apply last state to annotation")
 			}
@@ -538,9 +552,12 @@ func (r *Reconciler) reconcileNifiPVC(log zap.Logger, desiredPVC *corev1.Persist
 			}
 			resReq := desiredPVC.Spec.Resources.Requests
 			labels := desiredPVC.Labels
+			annotations := desiredPVC.Annotations
 			desiredPVC = currentPVC.DeepCopy()
 			desiredPVC.Spec.Resources.Requests = resReq
 			desiredPVC.Labels = labels
+			desiredPVC.Annotations = annotations
+			desiredPVC.SetOwnerReferences([]metav1.OwnerReference{templates.ClusterOwnerReference(r.NifiCluster)})
 
 			if err := r.Client.Update(context.TODO(), desiredPVC); err != nil {
 				return errorfactory.New(errorfactory.APIFailure{}, err, "updating resource failed", "kind", desiredType)
@@ -664,12 +681,10 @@ func (r *Reconciler) reconcileNifiPod(log zap.Logger, desiredPod *corev1.Pod) (e
 		} else if patchResult.IsEmpty() {
 			if !k8sutil.IsPodTerminatedOrShutdown(currentPod) &&
 				r.NifiCluster.Status.NodesState[currentPod.Labels["nodeId"]].ConfigurationState == v1.ConfigInSync {
-
 				if val, found := r.NifiCluster.Status.NodesState[desiredPod.Labels["nodeId"]]; found &&
 					val.GracefulActionState.State == v1.GracefulUpscaleRunning &&
 					val.GracefulActionState.ActionStep == v1.ConnectStatus &&
 					k8sutil.PodReady(currentPod) {
-
 					if err := k8sutil.UpdateNodeStatus(r.Client, []string{desiredPod.Labels["nodeId"]}, r.NifiCluster, r.NifiClusterCurrentStatus,
 						v1.GracefulActionState{ErrorMessage: "", State: v1.GracefulUpscaleSucceeded}, log); err != nil {
 						return errorfactory.New(errorfactory.StatusUpdateError{},
@@ -696,7 +711,6 @@ func (r *Reconciler) reconcileNifiPod(log zap.Logger, desiredPod *corev1.Pod) (e
 		}
 
 		if !k8sutil.IsPodTerminatedOrShutdown(currentPod) {
-
 			if r.NifiCluster.Status.State != v1.NifiClusterRollingUpgrading {
 				if err := k8sutil.UpdateCRStatus(r.Client, r.NifiCluster, r.NifiClusterCurrentStatus, v1.NifiClusterRollingUpgrading, log); err != nil {
 					return errorfactory.New(errorfactory.StatusUpdateError{},
@@ -827,10 +841,10 @@ func (r *Reconciler) reconcileNifiUsersAndGroups(log zap.Logger) error {
 					{Type: v1.ComponentAccessPolicyType, Action: v1.ReadAccessPolicyAction, Resource: v1.ProvenanceDataAccessPolicyResource, ComponentType: v1.ProcessGroupType},
 					{Type: v1.ComponentAccessPolicyType, Action: v1.ReadAccessPolicyAction, Resource: v1.DataAccessPolicyResource, ComponentType: v1.ProcessGroupType},
 					{Type: v1.ComponentAccessPolicyType, Action: v1.WriteAccessPolicyAction, Resource: v1.DataAccessPolicyResource, ComponentType: v1.ProcessGroupType},
-					//{Type: v1.ComponentAccessPolicyType, Action: v1.ReadAccessPolicyAction, Resource: v1.PoliciesComponentAccessPolicyResource, ComponentType: v1.ProcessGroupType},
-					//{Type: v1.ComponentAccessPolicyType, Action: v1.WriteAccessPolicyAction, Resource: v1.PoliciesComponentAccessPolicyResource, ComponentType: v1.ProcessGroupType},
-					//{Type: v1.ComponentAccessPolicyType, Action: v1.ReadAccessPolicyAction, Resource: v1.DataTransferAccessPolicyResource, ComponentType: v1.ProcessGroupType},
-					//{Type: v1.ComponentAccessPolicyType, Action: v1.WriteAccessPolicyAction, Resource: v1.DataTransferAccessPolicyResource, ComponentType: v1.ProcessGroupType},
+					// {Type: v1.ComponentAccessPolicyType, Action: v1.ReadAccessPolicyAction, Resource: v1.PoliciesComponentAccessPolicyResource, ComponentType: v1.ProcessGroupType},
+					// {Type: v1.ComponentAccessPolicyType, Action: v1.WriteAccessPolicyAction, Resource: v1.PoliciesComponentAccessPolicyResource, ComponentType: v1.ProcessGroupType},
+					// {Type: v1.ComponentAccessPolicyType, Action: v1.ReadAccessPolicyAction, Resource: v1.DataTransferAccessPolicyResource, ComponentType: v1.ProcessGroupType},
+					// {Type: v1.ComponentAccessPolicyType, Action: v1.WriteAccessPolicyAction, Resource: v1.DataTransferAccessPolicyResource, ComponentType: v1.ProcessGroupType},
 				},
 			},
 		},
@@ -908,7 +922,6 @@ func (r *Reconciler) reconcileNifiUsersAndGroups(log zap.Logger) error {
 }
 
 func (r *Reconciler) reconcilePrometheusReportingTask(log zap.Logger) error {
-
 	var err error
 
 	configManager := config.GetClientConfigManager(r.Client, v1.ClusterReference{

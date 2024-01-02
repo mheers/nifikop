@@ -74,6 +74,8 @@ spec:
                           type: array
                         externalName:
                           type: string
+                        loadBalancerClass:
+                          type: string
                         loadBalancerIP:
                           type: string
                         loadBalancerSourceRanges:
@@ -85,9 +87,19 @@ spec:
                             properties:
                               internalListenerName:
                                 type: string
+                              nodePort:
+                                format: int32
+                                type: integer
                               port:
                                 format: int32
                                 type: integer
+                              protocol:
+                                default: TCP
+                                enum:
+                                - TCP
+                                - UDP
+                                - SCTP
+                                type: string
                             required:
                             - internalListenerName
                             - port
@@ -739,6 +751,13 @@ spec:
                           format: int32
                           type: integer
                         name:
+                          type: string
+                        protocol:
+                          default: TCP
+                          enum:
+                          - TCP
+                          - UDP
+                          - SCTP
                           type: string
                         type:
                           enum:
@@ -1837,6 +1856,12 @@ spec:
                               volumeName:
                                 type: string
                             type: object
+                          reclaimPolicy:
+                            default: Delete
+                            enum:
+                            - Delete
+                            - Retain
+                            type: string
                         required:
                         - mountPath
                         - name
@@ -2894,6 +2919,12 @@ spec:
                                   volumeName:
                                     type: string
                                 type: object
+                              reclaimPolicy:
+                                default: Delete
+                                enum:
+                                - Delete
+                                - Retain
+                                type: string
                             required:
                             - mountPath
                             - name

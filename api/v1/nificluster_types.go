@@ -26,7 +26,7 @@ const (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// NifiClusterSpec defines the desired state of NifiCluster
+// NifiClusterSpec defines the desired state of NifiCluster.
 type NifiClusterSpec struct {
 	// clientType defines if the operator will use basic or tls authentication to query the NiFi cluster.
 	ClientType ClientConfigType `json:"clientType,omitempty"`
@@ -92,7 +92,7 @@ type NifiClusterSpec struct {
 	// NifiClusterTaskSpec specifies the configuration of the nifi cluster Tasks
 	NifiClusterTaskSpec NifiClusterTaskSpec `json:"nifiClusterTaskSpec,omitempty"`
 	// TODO : add vault
-	//VaultConfig         	VaultConfig         `json:"vaultConfig,omitempty"`
+	// VaultConfig         	VaultConfig         `json:"vaultConfig,omitempty"`
 	// listenerConfig specifies nifi's listener specifig configs
 	ListenersConfig *ListenersConfig `json:"listenersConfig,omitempty"`
 	// SidecarsConfig defines additional sidecar configurations
@@ -143,7 +143,7 @@ type UserSecretKeys struct {
 	Password string `json:"password,omitempty"`
 }
 
-// DisruptionBudget defines the configuration for PodDisruptionBudget
+// DisruptionBudget defines the configuration for PodDisruptionBudget.
 type DisruptionBudget struct {
 	// If set to true, will create a podDisruptionBudget
 	// +optional
@@ -182,9 +182,9 @@ type PodPolicy struct {
 }
 
 // rollingUpgradeConfig specifies the rolling upgrade config for the cluster
-//RollingUpgradeConfig 	RollingUpgradeConfig 	`json:"rollingUpgradeConfig"`
+// RollingUpgradeConfig 	RollingUpgradeConfig 	`json:"rollingUpgradeConfig"`
 
-// RollingUpgradeStatus defines status of rolling upgrade
+// RollingUpgradeStatus defines status of rolling upgrade.
 type RollingUpgradeStatus struct {
 	//
 	LastSuccess string `json:"lastSuccess"`
@@ -198,7 +198,7 @@ type RollingUpgradeStatus struct {
 	FailureThreshold	int	`json:"failureThreshold"`
 }*/
 
-// Node defines the nifi node basic configuration
+// Node defines the nifi node basic configuration.
 type Node struct {
 	// Unique Node id
 	Id int32 `json:"id"`
@@ -309,12 +309,12 @@ type BootstrapNotificationServicesConfig struct {
 	ReplaceSecretConfig *SecretConfigReference `json:"replaceSecretConfig,omitempty"`
 }
 
-// NodeConfig defines the node configuration
+// NodeConfig defines the node configuration.
 type NodeConfig struct {
 	// provenanceStorage allow to specify the maximum amount of data provenance information to store at a time
 	// https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#write-ahead-provenance-repository-properties
 	ProvenanceStorage string `json:"provenanceStorage,omitempty"`
-	//RunAsUser define the id of the user to run in the Nifi image
+	// RunAsUser define the id of the user to run in the Nifi image
 	// +kubebuilder:validation:Minimum=1
 	RunAsUser *int64 `json:"runAsUser,omitempty"`
 	// FSGroup define the id of the group for each volumes in Nifi image
@@ -369,7 +369,7 @@ type Metadata struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
-// StorageConfig defines the node storage configuration
+// StorageConfig defines the node storage configuration.
 type StorageConfig struct {
 	// Name of the storage config, used to name PV to reuse into sidecars for example.
 	// +kubebuilder:validation:Pattern=[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*
@@ -377,7 +377,17 @@ type StorageConfig struct {
 	// Path where the volume will be mount into the main nifi container inside the pod.
 	MountPath string `json:"mountPath"`
 	// labels and annotations to attach to the PVC created
+	// +optional
 	Metadata Metadata `json:"metadata,omitempty"`
+	// Whether or not to delete this PVC when the NifiCluster is deleted. If Retain, then the PVC is retained
+	// when the NifiCluster is deleted. If the NifiCluster is recreated, then the previously created PVCs
+	// will be reused. They will be re-attached to the same nodes they were attached to previously.
+	// If the node the PVC was attached to is no longer present, it will not be re-attached to any pod
+	// and is effectively orphaned.
+	// +optional
+	// +kubebuilder:default=Delete
+	// +kubebuilder:validation:Enum={"Delete","Retain"}
+	ReclaimPolicy corev1.PersistentVolumeReclaimPolicy `json:"reclaimPolicy,omitempty"`
 	// Kubernetes PVC spec
 	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec"`
 }
@@ -408,7 +418,7 @@ type ListenersConfig struct {
 	UseExternalDNS bool `json:"useExternalDNS,omitempty"`
 }
 
-// SSLSecrets defines the Nifi SSL secrets
+// SSLSecrets defines the Nifi SSL secrets.
 type SSLSecrets struct {
 	// tlsSecretName should contain all ssl certs required by nifi including: caCert, caKey, clientCert, clientKey
 	// serverCert, serverKey, peerCert, peerKey
@@ -422,7 +432,7 @@ type SSLSecrets struct {
 	IssuerRef *cmmeta.ObjectReference `json:"issuerRef,omitempty"`
 	// TODO : add vault
 	PKIBackend PKIBackend `json:"pkiBackend,omitempty"`
-	//,"vault"
+	// ,"vault"
 }
 
 // TODO : Add vault
@@ -438,7 +448,7 @@ type SSLSecrets struct {
 	UserStore string `json:"userStore"`
 }*/
 
-// InternalListenerConfig defines the internal listener config for Nifi
+// InternalListenerConfig defines the internal listener config for Nifi.
 type InternalListenerConfig struct {
 	// +kubebuilder:validation:Enum={"cluster", "http", "https", "s2s", "prometheus", "load-balance"}
 	// (Optional field) Type allow to specify if we are in a specific nifi listener
@@ -449,6 +459,9 @@ type InternalListenerConfig struct {
 	Name string `json:"name"`
 	// The container port.
 	ContainerPort int32 `json:"containerPort"`
+	// The network protocol for this listener. Options defined here: https://pkg.go.dev/k8s.io/api/core/v1#Protocol
+	// +kubebuilder:validation:Enum={"TCP", "UDP", "SCTP"}
+	Protocol corev1.Protocol `json:"protocol,omitempty"`
 }
 
 type ExternalServiceConfig struct {
@@ -522,6 +535,18 @@ type ExternalServiceSpec struct {
 	// and requires Type to be ExternalName.
 	// +optional
 	ExternalName string `json:"externalName,omitempty" protobuf:"bytes,10,opt,name=externalName"`
+	// loadBalancerClass is the class of the load balancer implementation this Service belongs to.
+	// If specified, the value of this field must be a label-style identifier, with an optional prefix,
+	// e.g. "internal-vip" or "example.com/internal-vip". Unprefixed names are reserved for end-users.
+	// This field can only be set when the Service type is 'LoadBalancer'. If not set, the default load
+	// balancer implementation is used, today this is typically done through the cloud provider integration,
+	// but should apply for any default implementation. If set, it is assumed that a load balancer
+	// implementation is watching for Services with a matching class. Any default load balancer
+	// implementation (e.g. cloud providers) should ignore Services that set this field.
+	// This field can only be set when creating or updating a Service to type 'LoadBalancer'.
+	// Once set, it can not be changed. This field will be wiped when a service is updated to a non 'LoadBalancer' type.
+	// +optional
+	LoadBalancerClass *string `json:"loadBalancerClass,omitempty" protobuf:"bytes,21,opt,name=loadBalancerClass"`
 }
 
 type PortConfig struct {
@@ -529,9 +554,15 @@ type PortConfig struct {
 	Port int32 `json:"port" protobuf:"varint,3,opt,name=port"`
 	// The name of the listener which will be used as target container.
 	InternalListenerName string `json:"internalListenerName"`
+	// The port that will expose this service externally. (Only if the service is of type NodePort)
+	// +optional
+	NodePort *int32 `json:"nodePort,omitempty"`
+	// The network protocol for this port. Options defined here: https://pkg.go.dev/k8s.io/api/core/v1#Protocol
+	// +kubebuilder:validation:Enum={"TCP", "UDP", "SCTP"}
+	Protocol corev1.Protocol `json:"protocol,omitempty"`
 }
 
-// LdapConfiguration specifies the configuration if you want to use LDAP
+// LdapConfiguration specifies the configuration if you want to use LDAP.
 type LdapConfiguration struct {
 	// If set to true, we will enable ldap usage into nifi.properties configuration.
 	Enabled bool `json:"enabled,omitempty"`
@@ -556,13 +587,13 @@ type LdapConfiguration struct {
 	IdentityStrategy string `json:"identityStrategy,omitempty"`
 }
 
-// NifiClusterTaskSpec specifies the configuration of the nifi cluster Tasks
+// NifiClusterTaskSpec specifies the configuration of the nifi cluster Tasks.
 type NifiClusterTaskSpec struct {
 	// RetryDurationMinutes describes the amount of time the Operator waits for the task
 	RetryDurationMinutes int `json:"retryDurationMinutes"`
 }
 
-// NifiClusterStatus defines the observed state of NifiCluster
+// NifiClusterStatus defines the observed state of NifiCluster.
 type NifiClusterStatus struct {
 	// Store the state of each nifi node
 	NodesState map[string]NodeState `json:"nodesState,omitempty"`
@@ -587,7 +618,7 @@ type PrometheusReportingTaskStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
-// NifiCluster is the Schema for the nificlusters API
+// NifiCluster is the Schema for the nificlusters API.
 type NifiCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -598,7 +629,7 @@ type NifiCluster struct {
 
 // +kubebuilder:object:root=true
 
-// NifiClusterList contains a list of NifiCluster
+// NifiClusterList contains a list of NifiCluster.
 type NifiClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -625,7 +656,7 @@ func (u *ManagedUser) GetIdentity() string {
 	return u.Identity
 }
 
-// GetZkPath returns the default "/" ZkPath if not specified otherwise
+// GetZkPath returns the default "/" ZkPath if not specified otherwise.
 func (nSpec *NifiClusterSpec) GetZkPath() string {
 	const prefix = "/"
 	if nSpec.ZKPath == "" {
@@ -638,7 +669,6 @@ func (nSpec *NifiClusterSpec) GetZkPath() string {
 }
 
 func (nSpec *NifiClusterSpec) GetInitContainerImage() string {
-
 	if nSpec.InitContainerImage == "" {
 		return "bash"
 	}
@@ -674,7 +704,7 @@ func (nTaskSpec *NifiClusterTaskSpec) GetDurationMinutes() float64 {
 	return float64(nTaskSpec.RetryDurationMinutes)
 }
 
-// GetServiceAccount returns the Kubernetes Service Account to use for Nifi Cluster
+// GetServiceAccount returns the Kubernetes Service Account to use for Nifi Cluster.
 func (nConfig *NodeConfig) GetServiceAccount() string {
 	if nConfig.ServiceAccountName != "" {
 		return nConfig.ServiceAccountName
@@ -682,22 +712,22 @@ func (nConfig *NodeConfig) GetServiceAccount() string {
 	return "default"
 }
 
-// GetTolerations returns the tolerations for the given node
+// GetTolerations returns the tolerations for the given node.
 func (nConfig *NodeConfig) GetTolerations() []corev1.Toleration {
 	return nConfig.Tolerations
 }
 
-// GetNodeSelector returns the node selector for the given node
+// GetNodeSelector returns the node selector for the given node.
 func (nConfig *NodeConfig) GetNodeSelector() map[string]string {
 	return nConfig.NodeSelector
 }
 
-// GetImagePullSecrets returns the list of Secrets needed to pull Containers images from private repositories
+// GetImagePullSecrets returns the list of Secrets needed to pull Containers images from private repositories.
 func (nConfig *NodeConfig) GetImagePullSecrets() []corev1.LocalObjectReference {
 	return nConfig.ImagePullSecrets
 }
 
-// GetImagePullPolicy returns the image pull policy to pull containers images
+// GetImagePullPolicy returns the image pull policy to pull containers images.
 func (nConfig *NodeConfig) GetImagePullPolicy() corev1.PullPolicy {
 	return nConfig.ImagePullPolicy
 }
@@ -706,12 +736,12 @@ func (nConfig *NodeConfig) GetPodAnnotations() map[string]string {
 	return nConfig.PodMetadata.Annotations
 }
 
-// GetNodeLabels returns additional labels configured to be applied to each nifi node
+// GetNodeLabels returns additional labels configured to be applied to each nifi node.
 func (nConfig *NodeConfig) GetPodLabels() map[string]string {
 	return nConfig.PodMetadata.Labels
 }
 
-// GetResources returns the nifi node specific Kubernetes resource
+// GetResources returns the nifi node specific Kubernetes resource.
 func (nConfig *NodeConfig) GetResources() *corev1.ResourceRequirements {
 	if nConfig.ResourcesRequirements != nil {
 		return nConfig.ResourcesRequirements
@@ -728,7 +758,7 @@ func (nConfig *NodeConfig) GetResources() *corev1.ResourceRequirements {
 	}
 }
 
-// GetPriorityClass returns the name of the priority class to use for the given node
+// GetPriorityClass returns the name of the priority class to use for the given node.
 func (nConfig *NodeConfig) GetPriorityClass() string {
 	if nConfig.PriorityClassName != nil {
 		return *nConfig.PriorityClassName
@@ -768,7 +798,7 @@ func (nConfig *NodeConfig) GetProvenanceStorage() string {
 	return "8 GB"
 }
 
-// GetNifiJvmMemory returns the default "2g" NifiJvmMemory if not specified otherwise
+// GetNifiJvmMemory returns the default "2g" NifiJvmMemory if not specified otherwise.
 func (bProperties *BootstrapProperties) GetNifiJvmMemory() string {
 	if bProperties.NifiJvmMemory != "" {
 		return bProperties.NifiJvmMemory
@@ -784,7 +814,6 @@ func (nProperties NifiProperties) GetAuthorizer() string {
 }
 
 func (nSpec *NifiClusterSpec) GetMetricPort() *int {
-
 	for _, iListener := range nSpec.ListenersConfig.InternalListeners {
 		if iListener.Type == PrometheusListenerType {
 			val := int(iListener.ContainerPort)
