@@ -52,6 +52,17 @@ func (n *nifiClient) CreateUserGroup(entity nigoapi.UserGroupEntity) (*nigoapi.U
 		return nil, ErrNoNodeClientsAvailable
 	}
 
+	// remove empty ids from entity
+	users := make([]nigoapi.TenantEntity, 0)
+
+	for _, user := range entity.Component.Users {
+		if user.Id != "" {
+			users = append(users, user)
+		}
+	}
+
+	entity.Component.Users = users
+
 	// Request on Nifi Rest API to create the user group
 	userGroupEntity, rsp, body, err := client.TenantsApi.CreateUserGroup(context, entity)
 	if err := errorCreateOperation(rsp, body, err, n.log); err != nil {
@@ -67,6 +78,17 @@ func (n *nifiClient) UpdateUserGroup(entity nigoapi.UserGroupEntity) (*nigoapi.U
 		n.log.Error("Error during creating node client", zap.Error(ErrNoNodeClientsAvailable))
 		return nil, ErrNoNodeClientsAvailable
 	}
+
+	// remove empty ids from entity
+	users := make([]nigoapi.TenantEntity, 0)
+
+	for _, user := range entity.Component.Users {
+		if user.Id != "" {
+			users = append(users, user)
+		}
+	}
+
+	entity.Component.Users = users
 
 	// Request on Nifi Rest API to update the user group
 	userGroupEntity, rsp, body, err := client.TenantsApi.UpdateUserGroup(context, entity.Id, entity)
